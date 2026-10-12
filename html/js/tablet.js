@@ -452,6 +452,17 @@
         if (del) del.addEventListener('click', async () => { const r2 = await call('reportsDelete', id); if (r2.ok) pageReports(); });
     }
 
+    function bedTitle(b) {
+        return b.room ? b.room + ' · ' + b.label : b.label;
+    }
+
+    function bedLine(b) {
+        if (!b.occupant) return t('hs_free', null, 'Free');
+        const bits = [b.name || t('hs_occupied', null, 'Occupied')];
+        if (b.status) bits.push(t(`visit_${b.status}`, null, b.status));
+        return bits.join(' · ');
+    }
+
     async function pageHospital() {
         const places = XS.list(data.places);
         const el = pageEl();
@@ -468,7 +479,7 @@
         const h = res.data;
         const beds = XS.list(h.beds);
         const board = XS.list(h.board);
-        el.querySelector('#hs-body').innerHTML = `<div class="pg-h" style="margin:4px 0 10px">${esc(t('hs_beds', null, 'Beds'))}</div><div class="bed-grid">${beds.map((b) => `<div class="bed-card ${b.occupant ? '' : 'b-free'}" style="${b.acuity ? `box-shadow:inset 3px 0 0 ${acuityColour(b.acuity)}` : ''}"><b>${esc(b.room || b.label)} · ${esc(b.label)}</b><span>${esc(b.occupant ? `${b.name} · ${t(`visit_${b.status}`, null, b.status || '')}` : t('hs_free', null, 'Free'))}</span></div>`).join('')}</div>
+        el.querySelector('#hs-body').innerHTML = `<div class="pg-h" style="margin:4px 0 10px">${esc(t('hs_beds', null, 'Beds'))}</div><div class="bed-grid">${beds.map((b) => `<div class="bed-card ${b.occupant ? '' : 'b-free'}" style="${b.acuity ? `box-shadow:inset 3px 0 0 ${acuityColour(b.acuity)}` : ''}"><b>${esc(bedTitle(b))}</b><span>${esc(bedLine(b))}</span></div>`).join('')}</div>
             <div class="pg-h" style="margin:18px 0 10px">${esc(t('hs_board', null, 'On the board'))}</div>
             ${board.length ? board.map((r) => `<div class="ls-row" data-src="${r.src}"><div><b>${esc(r.name)} · ${esc(r.room || '')}</b><span>${esc(t(`visit_${r.status}`, null, r.status))}${r.medic ? ` · ${esc(r.medic)}` : ''} · ${esc(XS.ago(r.since))}</span></div><span class="ac-dot" style="background:${acuityColour(r.acuity)}"></span></div>`).join('') : `<div class="xsm-empty">${esc(t('hs_board_empty', null, 'Nobody waiting'))}</div>`}`;
         el.querySelectorAll('#hs-body [data-src]').forEach((row) => row.addEventListener('click', async () => {

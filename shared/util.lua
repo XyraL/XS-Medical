@@ -52,10 +52,13 @@ function Util.Lines(value, max)
     return value
 end
 
+local idCount = 0
+
 function Util.Id(prefix)
     local stamp
     if IsDuplicityVersion() then stamp = os.time() else stamp = math.floor(GetGameTimer() / 1000) end
-    return ('%s%x%04x'):format(prefix or '', stamp, math.random(0, 65535))
+    idCount = idCount + 1
+    return ('%s%x%04x%x'):format(prefix or '', stamp, math.random(0, 65535), idCount)
 end
 
 function Util.Vec(value)

@@ -96,7 +96,11 @@ lib.callback.register('XS-Medical:server:claimBed', function(src, placeId, bedId
     local s = State.Get(src)
     if s.status ~= 'alive' then return false, Text('err_cannot_now') end
     Hospitals.Occupy(src, place, bed)
-    if #s.injuries > 0 or s.blood < 95 then Patients.Bed(src, place.id, bed, 'waiting') end
+    local before = Patients.Get(src)
+    local status = before and before.status ~= 'field' and before.status ~= 'ready' and before.status or 'waiting'
+    local v = Patients.Bed(src, place.id, bed, status)
+    v.identified = true
+    Patients.Changed(v)
     TriggerClientEvent('XS-Medical:client:toBed', src, bedPublic(place, bed), { treat = false })
     return true
 end)

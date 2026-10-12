@@ -9,6 +9,7 @@ local function loadDict(dict)
 end
 
 local function lieDown()
+    if Down and Down.ClearCrawl then Down.ClearCrawl() end
     local ped = PlayerPedId()
     local b = Bed.bed
     if not b then return end

@@ -558,6 +558,7 @@ Locales.en = {
     hs_beds = 'Beds',
     hs_board = 'On the board',
     hs_free = 'Free',
+    hs_occupied = 'Occupied',
     hs_board_empty = 'Nobody waiting',
 
     builder_title = 'Builder',

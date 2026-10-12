@@ -87,11 +87,16 @@ function Hospitals.Sanitize(raw)
         blip = raw.blip ~= false, points = {},
         society = str(raw.society, 32, ''),
     }
+    local seen = {}
     for t in pairs(Hospitals.Types) do
         local list = {}
         for _, rawPoint in ipairs(type(raw.points) == 'table' and type(raw.points[t]) == 'table' and raw.points[t] or {}) do
             local p = sanitizePoint(t, rawPoint)
-            if p and #list < 120 then list[#list + 1] = p end
+            if p and #list < 120 then
+                if seen[p.id] then p.id = Util.Id('p') end
+                seen[p.id] = true
+                list[#list + 1] = p
+            end
         end
         place.points[t] = list
     end

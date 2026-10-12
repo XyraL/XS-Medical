@@ -64,6 +64,7 @@ end)
 
 RegisterNetEvent('XS-Medical:client:toTable', function(point)
     if type(point) ~= 'table' then return end
+    if Down and Down.ClearCrawl then Down.ClearCrawl() end
     Surgery.onTable = true
     local ped = PlayerPedId()
     DoScreenFadeOut(500)

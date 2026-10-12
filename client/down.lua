@@ -45,16 +45,32 @@ local function currentAnim()
     return ANIMS[Down.status] or ANIMS.down
 end
 
+function Down.ClearCrawl()
+    if Down.crawlDir or Down.prone then ClearPedTasks(PlayerPedId()) end
+    Down.crawlDir, Down.prone, Down.crawling = nil, false, false
+end
+
 local function playAnim(force)
     if Down.escorted or Down.carried or (Bed and Bed.active) or (Equip and Equip.onIt) or (Surgery and Surgery.onTable) then return end
     local ped = PlayerPedId()
     if IsPedRagdoll(ped) then return end
+    if Down.crawlDir then return end
+    if Down.prone and not force then return end
     local anim = currentAnim()
     if not force and IsEntityPlayingAnim(ped, anim[1], anim[2], 3) then return end
-    if Down.crawling then return end
     if loadDict(anim[1]) then
+        if Down.prone then
+            ClearPedTasks(ped)
+            Down.prone = false
+        end
         TaskPlayAnim(ped, anim[1], anim[2], 8.0, -8.0, -1, 1, 0.0, false, false, false)
     end
+end
+
+local function crawlTo(ped, dir, loop)
+    local c = GetEntityCoords(ped)
+    local anim = dir == 'fwd' and CRAWL.fwd or CRAWL.bwd
+    TaskPlayAnimAdvanced(ped, CRAWL.dict, anim, c.x, c.y, c.z, 0.0, 0.0, GetEntityHeading(ped), 1.0, 1.0, 1.0, loop and 47 or 46, 1.0, 0, 0)
 end
 
 local function secondsLeft(key)
@@ -144,21 +160,23 @@ local function loop()
             EnableControlAction(0, 33, true)
             EnableControlAction(0, 34, true)
             EnableControlAction(0, 35, true)
-            local fwd, bwd = IsControlPressed(0, 32), IsControlPressed(0, 33)
+            local want = nil
+            if IsControlPressed(0, 32) then want = 'fwd' elseif IsControlPressed(0, 33) then want = 'bwd' end
             if IsControlPressed(0, 34) then SetEntityHeading(ped, GetEntityHeading(ped) + 1.2) end
             if IsControlPressed(0, 35) then SetEntityHeading(ped, GetEntityHeading(ped) - 1.2) end
-            if (fwd or bwd) and loadDict(CRAWL.dict) then
-                local anim = fwd and CRAWL.fwd or CRAWL.bwd
-                if now >= (Down.crawlUntil or 0) then
-                    local c = GetEntityCoords(ped)
-                    TaskPlayAnimAdvanced(ped, CRAWL.dict, anim, c.x, c.y, c.z, 0.0, 0.0, GetEntityHeading(ped), 2.0, 2.0, -1, 47, 1.0, 0, 0)
-                    Down.crawlUntil = now + math.floor(GetAnimDuration(CRAWL.dict, anim) * 1000) - 50
+            if want ~= Down.crawlDir and loadDict(CRAWL.dict) then
+                if want then
+                    crawlTo(ped, want, true)
+                    Down.prone = false
+                else
+                    crawlTo(ped, Down.crawlDir, false)
+                    Down.prone = true
                 end
-                Down.crawling = true
-            elseif Down.crawling then
-                Down.crawling = false
-                playAnim(true)
+                Down.crawlDir = want
+                Down.crawling = want ~= nil
             end
+        elseif Down.crawlDir or Down.prone then
+            Down.ClearCrawl()
         end
 
         if IsDisabledControlJustReleased(0, 47) or IsControlJustReleased(0, 47) then
@@ -206,7 +224,7 @@ function Down.Start(pub)
     end
     Down.active = true
     Down.pending = false
-    Down.crawling = false
+    Down.crawlDir, Down.prone, Down.crawling = nil, false, false
     disarm()
     if UI.HasFocus('tablet') and Tablet and Tablet.Close then Tablet.Close() end
     pushUI(true)
@@ -226,7 +244,7 @@ function Down.Update(pub)
     Down.status = pub.status
     pushUI(false)
     if changed then
-        Down.crawling = false
+        Down.ClearCrawl()
         playAnim(true)
         if pub.status == 'arrest' then TriggerEvent('qbx_medical:client:onPlayerDied') end
     end
@@ -235,7 +253,7 @@ end
 function Down.Stop(silent)
     if not Down.active then return end
     Down.active = false
-    Down.crawling = false
+    Down.crawlDir, Down.prone, Down.crawling = nil, false, false
     Down.escorted, Down.carried = false, false
     Down.holding = 0
     LocalPlayer.state:set('invBusy', false, false)

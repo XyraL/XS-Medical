@@ -163,6 +163,7 @@ end
 RegisterNetEvent('XS-Medical:client:placeOn', function(netId, kind)
     local ent = entityFromNet(netId)
     if ent == 0 then return end
+    if Down and Down.ClearCrawl then Down.ClearCrawl() end
     local ped = PlayerPedId()
     local _, seat = shapes(kind)
     Equip.onIt, Equip.onNet = true, netId
@@ -191,6 +192,7 @@ end)
 RegisterNetEvent('XS-Medical:client:carried', function(carrier)
     local other = GetPlayerFromServerId(carrier)
     if other == -1 then return end
+    if Down and Down.ClearCrawl then Down.ClearCrawl() end
     local carrierPed = GetPlayerPed(other)
     local ped = PlayerPedId()
     Equip.carriedBy = carrier
@@ -211,6 +213,7 @@ RegisterNetEvent('XS-Medical:client:intoVehicle', function(vehNetId)
     local vehicle = entityFromNet(vehNetId)
     if vehicle == 0 then return end
     Equip.Release()
+    if Down and Down.ClearCrawl then Down.ClearCrawl() end
     local ped = PlayerPedId()
     local seat = nil
     for _, s in ipairs({ 2, 1, 0 }) do

@@ -294,7 +294,11 @@ guard('hospital', nil, function(_, _, placeId)
     for _, bed in ipairs(place.points.bed or {}) do
         local occ = Hospitals.Occupant(place.id, bed.id)
         local v = occ and Patients.Get(occ) or nil
-        beds[#beds + 1] = { id = bed.id, label = bed.label, room = bed.room, occupant = occ, name = v and Patients.Display(v) or nil, status = v and v.status or nil, acuity = occ and (Player(occ).state.xsm or {}).acuity or nil }
+        beds[#beds + 1] = {
+            id = bed.id, label = bed.label, room = bed.room, occupant = occ,
+            name = occ and (v and Patients.Display(v) or Text('hs_occupied')) or nil,
+            status = v and v.status or nil, acuity = occ and (Player(occ).state.xsm or {}).acuity or nil,
+        }
     end
     return true, { id = place.id, name = place.name, beds = beds, board = Patients.Board(place.id) }
 end)
