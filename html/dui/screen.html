@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>XS-Medical Screen</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+body{font-family:'Segoe UI',system-ui,sans-serif;color:#e7eef6}
+.hide{display:none!important}
+.cond{font-family:Bahnschrift,'Arial Narrow',sans-serif}
+.mono{font-family:Consolas,'Courier New',monospace}
+
+#board{position:absolute;inset:0;background:#0b1016;display:grid;grid-template-rows:84px 1fr 54px}
+.bd-head{display:flex;align-items:center;gap:18px;padding:0 30px;background:#0f1720;border-bottom:2px solid #22303e}
+.bd-logo{width:44px;height:44px;border-radius:10px;background:#19d3c5;color:#032;display:grid;place-items:center;font:800 32px/1 Bahnschrift,sans-serif}
+.bd-title{font:700 30px/1 Bahnschrift,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.bd-sub{font:600 17px/1 Bahnschrift,sans-serif;letter-spacing:.2em;color:#8094aa;text-transform:uppercase}
+.bd-clock{margin-left:auto;font:700 34px/1 Consolas,monospace}
+.bd-table{display:grid;grid-template-columns:150px 1fr 260px 220px 110px;align-content:start}
+.bd-th{padding:14px 20px;font:700 15px/1 Bahnschrift,sans-serif;letter-spacing:.2em;color:#55677b;text-transform:uppercase;border-bottom:1px solid #22303e}
+.bd-td{height:72px;display:flex;align-items:center;padding:0 20px;border-bottom:1px solid #1b2733;font:600 28px/1 'Segoe UI',sans-serif;white-space:nowrap;overflow:hidden}
+.bd-room{font:700 30px/1 Bahnschrift,sans-serif}
+.bd-dim{font-size:21px;font-weight:500;color:#8094aa}
+.bd-time{font:700 22px/1 Consolas,monospace;color:#8094aa}
+.bd-tag{margin-left:12px;padding:4px 9px;border-radius:6px;background:rgba(255,59,78,.16);color:#ff8792;font:700 14px/1 Bahnschrift,sans-serif;letter-spacing:.1em;text-transform:uppercase}
+.bd-pill{padding:8px 16px;border-radius:999px;font:700 17px/1 Bahnschrift,sans-serif;letter-spacing:.1em;text-transform:uppercase}
+.bd-empty{grid-column:1/-1;display:grid;place-items:center;height:420px;color:#55677b;font:600 30px/1 Bahnschrift,sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.bd-foot{display:flex;gap:40px;align-items:center;padding:0 30px;border-top:2px solid #22303e;background:#0f1720;font:600 16px/1 Bahnschrift,sans-serif;letter-spacing:.18em;color:#8094aa;text-transform:uppercase}
+.bd-foot b{color:#e7eef6;font-size:20px;margin-left:10px}
+.bd-page{margin-left:auto}
+
+#sign{position:absolute;inset:0;background:#20252b;padding:22px}
+.sg-paper{height:100%;border-radius:6px;background:#e4e4dd;color:#16181b;padding:30px 34px;display:flex;flex-direction:column}
+.sg-room{font:700 46px/1 Bahnschrift,sans-serif;letter-spacing:.14em;text-transform:uppercase;padding-bottom:14px;border-bottom:4px solid #16181b}
+.sg-name{margin-top:28px;font:700 50px/1.1 'Segoe UI',sans-serif}
+.sg-line{margin-top:14px;font:600 26px/1.3 'Segoe UI',sans-serif;color:#3b3f45}
+.sg-free{color:#2a6b3c}
+
+#monitor{position:absolute;inset:0;background:#000;display:grid;grid-template-rows:56px 1fr;color:#e8f2ec}
+.mn-head{display:flex;align-items:center;gap:18px;padding:0 24px;border-bottom:2px solid #13201a;font:700 22px/1 Consolas,monospace}
+.mn-bed{color:#3dff7a}
+.mn-name{color:#e8f2ec}
+.mn-clock{margin-left:auto;color:#7f9c8c}
+.mn-alarm{padding:6px 12px;border-radius:5px;background:#7a0c14;color:#fff;font:700 18px/1 Consolas,monospace;letter-spacing:.06em}
+.mn-blink{animation:mnblink 1s steps(1) infinite}
+@keyframes mnblink{50%{opacity:.25}}
+.mn-body{display:grid;grid-template-columns:1fr 230px}
+.mn-waves{position:relative;border-right:2px solid #13201a}
+.mn-waves canvas{position:absolute;left:0;width:100%}
+.mn-lbl{position:absolute;left:14px;font:700 16px/1 Consolas,monospace}
+.mn-side{display:grid;grid-template-rows:repeat(4,1fr)}
+.mn-num{padding:8px 18px;border-bottom:2px solid #13201a;overflow:hidden}
+.mn-num small{display:block;font:700 16px/1 Consolas,monospace}
+.mn-num b{display:block;margin-top:4px;font:700 50px/1 Consolas,monospace}
+.mn-num em{font-style:normal;font:400 14px/1 Consolas,monospace;color:#6f8c7c}
+.c-hr{color:#3dff7a}.c-bp{color:#ff4b4b}.c-sp{color:#36d8ff}.c-rr{color:#ffe14a}
+.mn-empty{position:absolute;inset:0;display:grid;place-items:center;color:#3a5546;font:700 30px/1 Consolas,monospace;letter-spacing:.12em}
+</style>
+</head>
+<body>
+<div id="board" class="hide">
+  <div class="bd-head"><div class="bd-logo">+</div><div><div class="bd-title" id="bdTitle"></div><div class="bd-sub" id="bdSub"></div></div><div class="bd-clock" id="bdClock"></div></div>
+  <div class="bd-table" id="bdTable"></div>
+  <div class="bd-foot" id="bdFoot"></div>
+</div>
+
+<div id="sign" class="hide"><div class="sg-paper"><div class="sg-room" id="sgRoom"></div><div class="sg-name" id="sgName"></div><div class="sg-line" id="sgLine"></div></div></div>
+
+<div id="monitor" class="hide">
+  <div class="mn-head"><span class="mn-bed" id="mnBed"></span><span class="mn-name" id="mnName"></span><span id="mnAlarm"></span><span class="mn-clock" id="mnClock"></span></div>
+  <div class="mn-body">
+    <div class="mn-waves" id="mnWaves">
+      <span class="mn-lbl c-hr" style="top:14px">II</span>
+      <canvas id="ecg" width="560" height="170" style="top:30px;height:170px"></canvas>
+      <span class="mn-lbl c-sp" style="top:214px">PLETH</span>
+      <canvas id="pleth" width="560" height="150" style="top:232px;height:150px"></canvas>
+      <div class="mn-empty hide" id="mnEmpty"></div>
+    </div>
+    <div class="mn-side">
+      <div class="mn-num c-hr"><small>HR</small><b id="nHr">--</b><em id="nRhythm"></em></div>
+      <div class="mn-num c-bp"><small>NIBP</small><b id="nBp" style="font-size:40px">--/--</b><em>mmHg</em></div>
+      <div class="mn-num c-sp"><small>SpO2</small><b id="nSp">--</b><em>%</em></div>
+      <div class="mn-num c-rr"><small>RESP</small><b id="nRr">--</b><em>/min</em></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+    var kind = (new URLSearchParams(location.search).get('kind')) || 'board';
+    var STATUS = { waiting: '#4aa3ff', seen: '#ffb020', surgery: '#ff5b6b', recovering: '#33c26b', ready: '#19d3c5', incoming: '#b18cff', field: '#8094aa' };
+    var ACUITY = { 1: '#ff3b4e', 2: '#ff8a1f', 3: '#ffd22e', 4: '#33c26b', 5: '#4aa3ff' };
+    var labels = {};
+    var page = 0, pageAt = Date.now(), last = null;
+
+    function L(key, fallback) { return labels['screen_' + key] || fallback || key; }
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function rgba(hex, a) { var n = parseInt(hex.slice(1), 16); return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')'; }
+    function since(ts) {
+        if (!ts) return '';
+        var s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+        var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+        return h + ':' + (m < 10 ? '0' : '') + m;
+    }
+
+    function renderBoard(d) {
+        document.getElementById('bdTitle').textContent = d.title || '';
+        document.getElementById('bdSub').textContent = L('subtitle', 'Patients');
+        document.getElementById('bdClock').textContent = d.clock || '';
+        var table = document.getElementById('bdTable');
+        table.textContent = '';
+        ['room', 'patient', 'status', 'medic', 'time'].forEach(function (k) { table.appendChild(el('div', 'bd-th', L('col_' + k, k))); });
+        var rows = Array.isArray(d.rows) ? d.rows : [];
+        var per = 8, pages = Math.max(1, Math.ceil(rows.length / per));
+        if (Date.now() - pageAt > 8000) { page = (page + 1) % pages; pageAt = Date.now(); }
+        if (page >= pages) page = 0;
+        var slice = rows.slice(page * per, page * per + per);
+        if (!slice.length) table.appendChild(el('div', 'bd-empty', L('empty', 'No patients')));
+        slice.forEach(function (r) {
+            var room = el('div', 'bd-td bd-room', r.room || '—');
+            room.style.boxShadow = 'inset 8px 0 0 ' + (ACUITY[r.acuity] || ACUITY[5]);
+            table.appendChild(room);
+            var name = el('div', 'bd-td', r.name || '');
+            if (!r.identified) name.appendChild(el('span', 'bd-tag', L('no_id', 'No ID')));
+            table.appendChild(name);
+            var cell = el('div', 'bd-td');
+            var pill = el('span', 'bd-pill', L('status_' + r.status, r.status));
+            var colour = STATUS[r.status] || '#8094aa';
+            pill.style.background = rgba(colour, 0.18);
+            pill.style.color = colour;
+            cell.appendChild(pill);
+            table.appendChild(cell);
+            table.appendChild(el('div', 'bd-td bd-dim', r.medic || '—'));
+            table.appendChild(el('div', 'bd-td bd-time', since(r.since)));
+        });
+        var waiting = rows.filter(function (r) { return r.status === 'waiting'; }).length;
+        var foot = document.getElementById('bdFoot');
+        foot.textContent = '';
+        var a = el('span', null, L('medics', 'Medics on duty')); a.appendChild(el('b', null, String(d.medics || 0))); foot.appendChild(a);
+        var b = el('span', null, L('patients', 'Patients')); b.appendChild(el('b', null, String(rows.length))); foot.appendChild(b);
+        var c = el('span', null, L('waiting', 'Waiting')); c.appendChild(el('b', null, String(waiting))); foot.appendChild(c);
+        if (pages > 1) foot.appendChild(el('span', 'bd-page', (page + 1) + ' / ' + pages));
+    }
+
+    function renderSign(d) {
+        document.getElementById('sgRoom').textContent = d.room || '';
+        var name = document.getElementById('sgName'), line = document.getElementById('sgLine');
+        if (d.row) {
+            name.textContent = d.row.name || '';
+            name.className = 'sg-name';
+            line.textContent = L('status_' + d.row.status, d.row.status) + (d.row.medic ? ' · ' + d.row.medic : '');
+        } else {
+            name.textContent = L('free', 'Free');
+            name.className = 'sg-name sg-free';
+            line.textContent = L('free_line', 'Ready for a patient');
+        }
+    }
+
+    var vit = null;
+    function renderMonitor(d) {
+        vit = d.vitals || null;
+        document.getElementById('mnBed').textContent = d.label || '';
+        document.getElementById('mnName').textContent = d.name || '';
+        document.getElementById('mnClock').textContent = d.clock || '';
+        var empty = document.getElementById('mnEmpty');
+        var alarm = document.getElementById('mnAlarm');
+        alarm.textContent = '';
+        alarm.className = '';
+        if (!vit) {
+            empty.textContent = L('no_patient', 'NO PATIENT');
+            empty.classList.remove('hide');
+            ['nHr', 'nSp', 'nRr'].forEach(function (id) { document.getElementById(id).textContent = '--'; });
+            document.getElementById('nBp').textContent = '--/--';
+            document.getElementById('nRhythm').textContent = '';
+            return;
+        }
+        empty.classList.add('hide');
+        var dead = vit.status === 'arrest' || vit.status === 'dead';
+        document.getElementById('nHr').textContent = dead ? '0' : String(vit.hr);
+        document.getElementById('nBp').textContent = dead ? '--/--' : vit.sys + '/' + vit.dia;
+        document.getElementById('nSp').textContent = dead ? '--' : String(vit.spo2);
+        document.getElementById('nRr').textContent = dead ? '0' : String(vit.resp);
+        document.getElementById('nRhythm').textContent = L('rhythm_' + vit.rhythm, vit.rhythm || '');
+        var alarms = Array.isArray(vit.alarms) ? vit.alarms : [];
+        if (alarms.length) {
+            alarm.textContent = '⚠ ' + L('alarm_' + alarms[0], alarms[0]);
+            alarm.className = 'mn-alarm' + (dead ? ' mn-blink' : '');
+        }
+    }
+
+    var ecg = document.getElementById('ecg').getContext('2d');
+    var pleth = document.getElementById('pleth').getContext('2d');
+    var x = 0, lastY = null, lastP = null, beat = 0, prev = performance.now();
+    function ecgAt(phase, rhythm) {
+        if (rhythm === 'asystole') return 0;
+        if (rhythm === 'vf') return Math.sin(phase * 31) * 18 + Math.sin(phase * 13.7) * 12;
+        if (phase < 0.08) return Math.sin(phase / 0.08 * Math.PI) * 8;
+        if (phase < 0.16) return 0;
+        if (phase < 0.19) return -10;
+        if (phase < 0.22) return 62;
+        if (phase < 0.25) return -22;
+        if (phase < 0.4) return 0;
+        if (phase < 0.55) return Math.sin((phase - 0.4) / 0.15 * Math.PI) * 14;
+        return 0;
+    }
+    function frame(now) {
+        var dt = Math.min(0.1, (now - prev) / 1000);
+        prev = now;
+        if (kind === 'monitor') {
+            var hr = vit && vit.status !== 'arrest' && vit.status !== 'dead' ? Math.max(20, vit.hr || 70) : 0;
+            var rhythm = !vit ? 'asystole' : (vit.status === 'arrest' ? (vit.rhythm === 'vf' ? 'vf' : 'asystole') : (vit.status === 'dead' ? 'asystole' : 'sinus'));
+            beat += hr > 0 ? dt * hr / 60 : dt * 3;
+            var phase = beat % 1;
+            var speed = 140 * dt;
+            var nx = x + speed;
+            var ew = ecg.canvas.width, eh = ecg.canvas.height;
+            var y = eh * 0.62 - ecgAt(phase, vit ? rhythm : 'asystole');
+            ecg.clearRect(nx, 0, 18, eh);
+            pleth.clearRect(nx, 0, 18, pleth.canvas.height);
+            if (lastY !== null && nx > x) {
+                ecg.strokeStyle = '#3dff7a'; ecg.lineWidth = 3;
+                ecg.beginPath(); ecg.moveTo(x, lastY); ecg.lineTo(nx, y); ecg.stroke();
+                var py = pleth.canvas.height * 0.62 - (vit && hr > 0 ? Math.max(0, Math.sin(phase * Math.PI * 2 - 0.6)) * 44 + Math.max(0, Math.sin(phase * Math.PI * 4 - 1.2)) * 8 : 0);
+                if (lastP !== null) { pleth.strokeStyle = '#36d8ff'; pleth.lineWidth = 3; pleth.beginPath(); pleth.moveTo(x, lastP); pleth.lineTo(nx, py); pleth.stroke(); }
+                lastP = py;
+            }
+            lastY = y;
+            x = nx;
+            if (x > ew) { x = 0; lastY = null; lastP = null; }
+        }
+        requestAnimationFrame(frame);
+    }
+
+    function render(d) {
+        if (!d || typeof d !== 'object') return;
+        if (d.blank) {
+            last = null;
+            if (d.kind === 'board') renderBoard({ title: '', rows: [], clock: '', medics: 0 });
+            else if (d.kind === 'sign') { document.getElementById('sgRoom').textContent = ''; document.getElementById('sgName').textContent = ''; document.getElementById('sgLine').textContent = ''; }
+            else renderMonitor({ label: '', vitals: null });
+            return;
+        }
+        if (d.labels) labels = d.labels;
+        last = d;
+        if (d.kind === 'board') renderBoard(d);
+        else if (d.kind === 'sign') renderSign(d);
+        else if (d.kind === 'monitor') renderMonitor(d);
+    }
+
+    window.addEventListener('message', function (event) {
+        var data = event.data;
+        if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) { return; } }
+        render(data);
+    });
+
+    document.getElementById(kind === 'sign' ? 'sign' : (kind === 'monitor' ? 'monitor' : 'board')).classList.remove('hide');
+    setInterval(function () { if (last && last.kind === 'board') renderBoard(last); }, 1000);
+    requestAnimationFrame(frame);
+    window.XSScreen = { render: render };
+})();
+</script>
+</body>
+</html>
