@@ -91,7 +91,7 @@
             document.body.style.background = 'radial-gradient(ellipse at 30% 20%, #3a4a52, #11181c 70%)';
             const off = (new URLSearchParams(location.search).get('off') || '').split(',').filter(Boolean);
             send('core', 'boot', { locale: window.XSMockLocale || {}, config: { hud: true, pages: Object.fromEntries(off.map((p) => [p, false])), supplies: { bandage: { self: true }, tourniquet: { self: true }, gauze: { self: false }, splint: { self: false }, burncream: { self: true }, painkillers: { self: true }, ifaks: { self: true } } } });
-            if (name === 'down') send('down', 'open', { status: 'down', seconds: { bleedOut: 192, respawn: 108 }, vitals: Object.assign({}, vitals, { hr: 41 }), injuries, ems: 2, blood: 58 });
+            if (name === 'down') send('down', 'open', { status: 'down', seconds: { bleedOut: 192, respawn: 108 }, vitals: Object.assign({}, vitals, { hr: 41, rhythm: 'brady' }), injuries, ems: 2, blood: 58 });
             if (name === 'arrest') send('down', 'open', { status: 'arrest', rhythm: 'vf', seconds: { arrest: 171, respawn: 0 }, vitals: { hr: 0 }, injuries, ems: 2 });
             if (name === 'knockout') send('down', 'open', { status: 'knockout', seconds: { wake: 31 }, vitals: { hr: 64 }, injuries: [], ems: 0 });
             if (name === 'hud') {
