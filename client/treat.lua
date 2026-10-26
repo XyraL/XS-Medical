@@ -126,6 +126,10 @@ end
 
 function Treat.UseItem(item)
     if Down.active then return end
+    if item and item == (Config.Tablet or {}).item then
+        Tablet.Open('patient')
+        return
+    end
     local key = supplyKeyFor(item)
     if key then
         local target = chooseTarget(key)
@@ -188,93 +192,108 @@ function Treat.Glance(target)
     lib.alertDialog({ header = info.header or Text('glance_title'), content = #lines > 0 and table.concat(lines, '  \n') or Text('glance_fine'), centered = true })
 end
 
+
+local supplyCheck = { at = 0, has = false }
+
+function Treat.HasSupplies()
+    local now = GetGameTimer()
+    if now - supplyCheck.at < 2000 then return supplyCheck.has end
+    supplyCheck.at = now
+    supplyCheck.has = false
+    local medic = Me.IsMedic()
+    for _, s in pairs(Config.Supplies or {}) do
+        if (s.anyone or medic) and Inventory.Count(s.item) > 0 then
+            supplyCheck.has = true
+            break
+        end
+    end
+    return supplyCheck.has
+end
+
 local function pedTarget(entity)
     return Treat.ServerId(entity)
+end
+
+local function down(entity)
+    return Treat.StatusOf(pedTarget(entity)) ~= 'alive'
+end
+
+local function free(entity)
+    return not IsEntityAttached(entity) and not IsPedInAnyVehicle(entity, false)
+end
+
+local function run(fn)
+    return function(entity)
+        local id = pedTarget(entity)
+        if id then fn(id, entity) end
+    end
 end
 
 function Treat.RegisterTargets()
     Target.AddPlayers({
         {
             label = Text('opt_examine'), icon = 'fas fa-stethoscope', distance = 2.5,
-            onSelect = function(entity)
-                local id = pedTarget(entity)
-                if not id then return end
+            onSelect = run(function(id)
                 if Me.IsMedic() then Tablet.Open('patient', id) else Treat.Glance(id) end
-            end,
+            end),
         },
         {
             label = Text('opt_treat'), icon = 'fas fa-kit-medical', distance = 2.5,
-            canInteract = function(entity)
-                local id = pedTarget(entity)
-                local bag = Treat.BagOf(id)
-                return bag.status ~= nil
-            end,
-            onSelect = function(entity)
-                local id = pedTarget(entity)
-                if id then Treat.Menu(id) end
-            end,
+            canInteract = function() return Me.IsMedic() or Treat.HasSupplies() end,
+            onSelect = run(function(id) Treat.Menu(id) end),
         },
         {
             label = Text('opt_cpr'), icon = 'fas fa-heart-pulse', distance = 2.0,
             canInteract = function(entity) return Treat.StatusOf(pedTarget(entity)) == 'arrest' end,
-            onSelect = function(entity)
-                local id = pedTarget(entity)
-                if id then Treat.Run(id, 'cpr') end
-            end,
+            onSelect = run(function(id) Treat.Run(id, 'cpr') end),
         },
         {
             label = Text('opt_checkid'), icon = 'fas fa-id-card', distance = 2.0,
-            canInteract = function(entity)
-                if not Me.IsMedic() then return false end
-                return Treat.StatusOf(pedTarget(entity)) ~= 'alive'
-            end,
-            onSelect = function(entity)
-                local id = pedTarget(entity)
-                if id then Treat.Run(id, 'checkid') end
-            end,
-        },
-        {
-            label = Text('opt_carry'), icon = 'fas fa-person-walking', distance = 2.0,
-            canInteract = function(entity) return Treat.StatusOf(pedTarget(entity)) ~= 'alive' and not Equip.carrying end,
-            onSelect = function(entity)
-                local id = pedTarget(entity)
-                if id then Equip.Carry(id) end
-            end,
+            canInteract = function(entity) return Me.IsMedic() and down(entity) end,
+            onSelect = run(function(id) Treat.Run(id, 'checkid') end),
         },
         {
             label = Text('opt_stretcher'), icon = 'fas fa-bed-pulse', distance = 3.0,
-            canInteract = function() return Equip.held ~= nil end,
-            onSelect = function(entity)
-                local id = pedTarget(entity)
-                if id then Equip.PlaceOn(id) end
-            end,
+            canInteract = function(entity) return Me.IsMedic() and free(entity) and Equip.Nearest('stretcher', 4.0, true) ~= nil end,
+            onSelect = run(function(id) Equip.PlaceOn(id, 'stretcher') end),
+        },
+        {
+            label = Text('opt_wheelchair'), icon = 'fas fa-wheelchair', distance = 3.0,
+            canInteract = function(entity) return free(entity) and Equip.Nearest('wheelchair', 3.5, true) ~= nil end,
+            onSelect = run(function(id) Equip.PlaceOn(id, 'wheelchair') end),
+        },
+        {
+            label = Text('opt_take_off'), icon = 'fas fa-person-walking-arrow-right', distance = 3.0,
+            canInteract = function(entity) return Equip.Under(entity) ~= nil end,
+            onSelect = run(function(id) Equip.TakeOff(id) end),
+        },
+        {
+            label = Text('opt_carry'), icon = 'fas fa-person-walking', distance = 2.0,
+            canInteract = function(entity) return down(entity) and free(entity) and not Equip.carrying and not Equip.held end,
+            onSelect = run(function(id) Equip.Carry(id) end),
         },
         {
             label = Text('opt_bed'), icon = 'fas fa-bed', distance = 3.0,
-            canInteract = function() return Me.IsMedic() and Hospital.NearestFreeBed(4.0) ~= nil end,
-            onSelect = function(entity)
-                local id = pedTarget(entity)
-                if id then Hospital.PutInBed(id) end
-            end,
+            canInteract = function() return Me.IsMedic() and Hospital.NearestFreeBed(5.0) ~= nil end,
+            onSelect = run(function(id) Hospital.PutInBed(id) end),
+        },
+        {
+            label = Text('opt_surgery'), icon = 'fas fa-syringe', distance = 3.0,
+            canInteract = function() return Me.IsMedic() and Hospital.NearestSurgery(5.0) ~= nil end,
+            onSelect = run(function(id) Surgery.Begin(id) end),
         },
         {
             label = Text('opt_vehicle_in'), icon = 'fas fa-truck-medical', distance = 3.0,
             canInteract = function(entity)
-                local id = pedTarget(entity)
-                return Treat.StatusOf(id) ~= 'alive' and lib.getClosestVehicle(GetEntityCoords(PlayerPedId()), 6.0, false) ~= nil
+                if not (down(entity) or Equip.Under(entity)) then return false end
+                return lib.getClosestVehicle(GetEntityCoords(PlayerPedId()), 6.0, false) ~= nil
             end,
-            onSelect = function(entity)
-                local id = pedTarget(entity)
-                if id then Equip.LoadInto(id) end
-            end,
+            onSelect = run(function(id) Equip.LoadInto(id) end),
         },
         {
             label = Text('opt_bill'), icon = 'fas fa-file-invoice-dollar', distance = 3.0,
             canInteract = function() return Me.IsMedic() end,
-            onSelect = function(entity)
-                local id = pedTarget(entity)
-                if id then Tablet.Bill(id) end
-            end,
+            onSelect = run(function(id) Tablet.Bill(id) end),
         },
     })
 end

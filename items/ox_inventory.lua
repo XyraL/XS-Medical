@@ -106,3 +106,11 @@
     description = 'Prescription. Calms the nerves.',
     client = { export = 'XS-Medical.useItem' },
 },
+
+['medical_tablet'] = {
+    label = 'Medical Tablet',
+    weight = 800,
+    stack = false,
+    description = 'Patients, calls, records and beds. Medics only.',
+    client = { export = 'XS-Medical.useItem' },
+},

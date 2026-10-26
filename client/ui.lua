@@ -87,7 +87,9 @@ function UI.PublicConfig()
     return {
         supplies = supplies, medicines = Config.Medicines or {}, grades = Config.Grades or {},
         hud = (Config.Hud or {}).enabled ~= false, holdToRespawn = (Config.Down or {}).holdToRespawn or 3,
-        names = (Config.Screens or {}).names or 'full',
+        names = (Config.Screens or {}).names or 'full', accent = (Config.Tablet or {}).accent,
+        alertSeconds = (Config.Dispatch or {}).alertSeconds or 15,
+        pages = (Config.Tablet or {}).pages or {},
     }
 end
 

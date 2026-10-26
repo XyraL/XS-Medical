@@ -30,12 +30,28 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#e7eef6}
 .bd-foot b{color:#e7eef6;font-size:20px;margin-left:10px}
 .bd-page{margin-left:auto}
 
-#sign{position:absolute;inset:0;background:#20252b;padding:22px}
-.sg-paper{height:100%;border-radius:6px;background:#e4e4dd;color:#16181b;padding:30px 34px;display:flex;flex-direction:column}
-.sg-room{font:700 46px/1 Bahnschrift,sans-serif;letter-spacing:.14em;text-transform:uppercase;padding-bottom:14px;border-bottom:4px solid #16181b}
-.sg-name{margin-top:28px;font:700 50px/1.1 'Segoe UI',sans-serif}
-.sg-line{margin-top:14px;font:600 26px/1.3 'Segoe UI',sans-serif;color:#3b3f45}
-.sg-free{color:#2a6b3c}
+#sign{position:absolute;inset:0;background:#0b1016;display:grid;grid-template-rows:56px auto 1fr 52px;overflow:hidden}
+.sg-top{display:flex;align-items:center;gap:14px;padding:0 24px;background:#0f1720;border-bottom:2px solid #22303e}
+.sg-logo{width:32px;height:32px;border-radius:8px;background:#19d3c5;color:#032;display:grid;place-items:center;font:800 24px/1 Bahnschrift,sans-serif}
+.sg-place{flex:1;min-width:0;font:600 17px/1 Bahnschrift,sans-serif;letter-spacing:.2em;color:#8094aa;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sg-clock{font:700 24px/1 Consolas,monospace;color:#e7eef6}
+.sg-mid{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 28px;padding:22px 0 20px;border-bottom:1px solid #1b2733}
+.sg-room{min-width:0;font:700 62px/1 Bahnschrift,sans-serif;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sg-pill{display:inline-flex;align-items:center;gap:10px;padding:10px 18px;border-radius:999px;font:700 17px/1 Bahnschrift,sans-serif;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+.sg-pill i{width:11px;height:11px;border-radius:50%;background:currentColor;box-shadow:0 0 12px currentColor}
+.sg-who{display:grid;grid-template-columns:1.45fr 1fr;gap:22px;align-content:center;padding:0 28px;min-width:0}
+.sg-col{min-width:0}
+.sg-col small{display:block;font:600 13px/1 Bahnschrift,sans-serif;letter-spacing:.28em;color:#55677b;text-transform:uppercase}
+.sg-name{margin-top:9px;font:700 36px/1.1 'Segoe UI',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sg-name.sg-free{color:#33c26b;font-weight:600}
+.sg-line{margin-top:11px;font:600 25px/1.2 'Segoe UI',sans-serif;color:#c8d4e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sg-line.sg-none{color:#55677b}
+.sg-foot{position:relative;display:flex;align-items:center;gap:16px;padding:0 24px 0 32px;background:#0f1720;border-top:2px solid #22303e;font:600 16px/1 Bahnschrift,sans-serif;letter-spacing:.16em;color:#8094aa;text-transform:uppercase}
+.sg-foot::before{content:'';position:absolute;left:0;top:0;bottom:0;width:10px;background:var(--tri,#22303e)}
+.sg-foot b{color:var(--tri,#e7eef6)}
+.sg-foot .sg-tag{padding:5px 10px;border-radius:6px;background:rgba(255,59,78,.16);color:#ff8792;font-size:14px}
+.sg-foot .sg-end{margin-left:auto;font:700 20px/1 Consolas,monospace;letter-spacing:0;color:#e7eef6}
+.sg-foot .sg-endl{margin-right:8px;font:600 14px/1 Bahnschrift,sans-serif;letter-spacing:.16em;color:#55677b}
 
 #monitor{position:absolute;inset:0;background:#000;display:grid;grid-template-rows:56px 1fr;color:#e8f2ec}
 .mn-head{display:flex;align-items:center;gap:18px;padding:0 24px;border-bottom:2px solid #13201a;font:700 22px/1 Consolas,monospace}
@@ -65,7 +81,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#e7eef6}
   <div class="bd-foot" id="bdFoot"></div>
 </div>
 
-<div id="sign" class="hide"><div class="sg-paper"><div class="sg-room" id="sgRoom"></div><div class="sg-name" id="sgName"></div><div class="sg-line" id="sgLine"></div></div></div>
+<div id="sign" class="hide">
+  <div class="sg-top"><div class="sg-logo">+</div><div class="sg-place" id="sgPlace"></div><div class="sg-clock" id="sgClock"></div></div>
+  <div class="sg-mid"><span class="sg-room" id="sgRoom"></span><span class="sg-pill" id="sgPill"></span></div>
+  <div class="sg-who"><div class="sg-col"><small id="sgWhoLbl"></small><div class="sg-name" id="sgName"></div></div><div class="sg-col" id="sgMedCol"><small id="sgMedLbl"></small><div class="sg-line" id="sgLine"></div></div></div>
+  <div class="sg-foot" id="sgFoot"></div>
+</div>
 
 <div id="monitor" class="hide">
   <div class="mn-head"><span class="mn-bed" id="mnBed"></span><span class="mn-name" id="mnName"></span><span id="mnAlarm"></span><span class="mn-clock" id="mnClock"></span></div>
@@ -144,16 +165,41 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#e7eef6}
     }
 
     function renderSign(d) {
+        var row = d.row || null;
+        document.getElementById('sgPlace').textContent = d.place || '';
+        document.getElementById('sgClock').textContent = d.clock || '';
         document.getElementById('sgRoom').textContent = d.room || '';
-        var name = document.getElementById('sgName'), line = document.getElementById('sgLine');
-        if (d.row) {
-            name.textContent = d.row.name || '';
+        document.getElementById('sgWhoLbl').textContent = row ? L('col_patient', 'Patient') : L('col_status', 'Status');
+        document.getElementById('sgMedLbl').textContent = L('col_medic', 'Medic');
+        document.getElementById('sgMedCol').classList.toggle('hide', !row);
+        var pill = document.getElementById('sgPill');
+        var colour = row ? (STATUS[row.status] || '#8094aa') : '#33c26b';
+        pill.textContent = '';
+        pill.appendChild(el('i'));
+        pill.appendChild(document.createTextNode(row ? L('status_' + row.status, row.status) : L('available', 'Available')));
+        pill.style.background = rgba(colour, 0.16);
+        pill.style.color = colour;
+        var name = document.getElementById('sgName'), line = document.getElementById('sgLine'), foot = document.getElementById('sgFoot');
+        foot.textContent = '';
+        if (row) {
+            name.textContent = row.name || '';
             name.className = 'sg-name';
-            line.textContent = L('status_' + d.row.status, d.row.status) + (d.row.medic ? ' · ' + d.row.medic : '');
+            line.textContent = row.medic || L('no_medic', 'Waiting for a medic');
+            line.className = row.medic ? 'sg-line' : 'sg-line sg-none';
+            var tri = ACUITY[row.acuity] || ACUITY[5];
+            foot.style.setProperty('--tri', tri);
+            var level = el('b', null, L('triage_' + (row.acuity || 5), ''));
+            foot.appendChild(level);
+            if (!row.identified) foot.appendChild(el('span', 'sg-tag', L('no_id', 'No ID')));
+            var end = el('span', 'sg-end', since(row.since));
+            end.insertBefore(el('small', 'sg-endl', L('in_room', 'In room')), end.firstChild);
+            foot.appendChild(end);
         } else {
-            name.textContent = L('free', 'Free');
+            name.textContent = L('free_line', 'Ready for a patient');
             name.className = 'sg-name sg-free';
-            line.textContent = L('free_line', 'Ready for a patient');
+            line.textContent = '';
+            foot.style.setProperty('--tri', '#33c26b');
+            foot.appendChild(el('span', null, L('free', 'Free')));
         }
     }
 
@@ -237,7 +283,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#e7eef6}
         if (d.blank) {
             last = null;
             if (d.kind === 'board') renderBoard({ title: '', rows: [], clock: '', medics: 0 });
-            else if (d.kind === 'sign') { document.getElementById('sgRoom').textContent = ''; document.getElementById('sgName').textContent = ''; document.getElementById('sgLine').textContent = ''; }
+            else if (d.kind === 'sign') { ['sgPlace', 'sgClock', 'sgWhoLbl', 'sgMedLbl', 'sgRoom', 'sgPill', 'sgName', 'sgLine', 'sgFoot'].forEach(function (id) { document.getElementById(id).textContent = ''; }); document.getElementById('sgPill').style.background = 'none'; }
             else renderMonitor({ label: '', vitals: null });
             return;
         }
@@ -255,7 +301,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#e7eef6}
     });
 
     document.getElementById(kind === 'sign' ? 'sign' : (kind === 'monitor' ? 'monitor' : 'board')).classList.remove('hide');
-    setInterval(function () { if (last && last.kind === 'board') renderBoard(last); }, 1000);
+    setInterval(function () { if (last && last.kind === 'board') renderBoard(last); if (last && last.kind === 'sign') renderSign(last); }, 1000);
     requestAnimationFrame(frame);
     window.XSScreen = { render: render };
 })();

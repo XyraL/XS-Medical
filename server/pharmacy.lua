@@ -100,6 +100,7 @@ function Pharmacy.Take(src, item)
             injury.infected = false
             injury.openAt = nil
         end
+        State.Sweep(src, s)
     elseif med.effect == 'stress' then
         Framework.SetStress(src, -(med.amount or 40))
     end

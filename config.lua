@@ -33,6 +33,7 @@ Config.Grades = {
     prescribe = 1,
     surgery = 2,
     editRecords = 1,
+    editReports = 3, -- edit anyone's care report. Writers can always edit their own
     deleteReports = 3,
     manage = 4,      -- hire, fire and promote from the tablet
 }
@@ -46,6 +47,10 @@ Config.Commands = {
     heal = 'aheal',        -- admins: /aheal [id]
     kill = 'kill',         -- admins: /kill [id]
     diag = 'medicaldiag',  -- anyone: prints what XS-Medical detected, for support
+    respond = 'medrespond', -- medics: takes the call on the alert and sets GPS. false to turn off
+    respondKey = 'Y',       -- default key for respond, players can rebind it. false for none
+    hideAlert = 'medhide',  -- medics: hides the call alert
+    hideKey = 'U',          -- default key for hide, players can rebind it. false for none
 }
 
 -- The small vitals strip in the corner while you are hurt.
@@ -54,8 +59,18 @@ Config.Hud = {
 }
 
 Config.Tablet = {
-    item = false,  -- item a medic needs to open the tablet, e.g. 'medical_tablet'. false for none
-    prop = true,   -- holds a tablet while it is open
+    item = 'medical_tablet', -- using this item opens the tablet. false for no item
+    needItem = false,        -- true: medics need the item to open the tablet at all, even with the key or command
+    prop = true,             -- holds a tablet while it is open
+    accent = '#2fbf6b',      -- tablet and alert colour, the same green XS-MDT uses for EMS
+    -- The record pages. Turn any off if your server keeps medical records in another MDT.
+    -- Patient, Calls and Hospital always stay: treating, call alerts and beds live there.
+    pages = {
+        records = true,   -- patient records
+        prescribe = true, -- prescriptions
+        reports = true,   -- care reports
+        roster = true,    -- roster, callsigns, hiring and firing
+    },
 }
 
 Config.Damage = {
@@ -115,32 +130,31 @@ Config.Respawn = {
 }
 
 Config.CheckIn = {
-    price = 250,
+    price = 250,        -- the nurse puts you in a bed and heals you for this, medics on duty or not
     account = 'bank',
-    nurseWhenMedicsBelow = 1, -- the nurse treats you when fewer medics than this are on duty
-    treatSeconds = 20,
-    pageMedics = true,
+    treatSeconds = { 5, 10 }, -- the nurse checks you over for a random time in this range, in seconds
+    pageMedics = true,  -- when every bed is taken, you go on the waiting list and medics are paged
 }
 
 Config.Recovery = {
-    bedHealPerSecond = 2,     -- health back per second lying in a hospital bed while being cared for
+    bedHealPerSecond = 2,     -- health back per second while the nurse treats you. Lying in a bed on your own does nothing
 }
 
 -- What each supply does is built in. Change the item names to match your inventory, or set anyone = false
 -- to keep a supply for medics only.
 Config.Supplies = {
-    bandage = { item = 'bandage', seconds = 5, anyone = true, self = true },
-    tourniquet = { item = 'tourniquet', seconds = 4, anyone = true, self = true },
-    gauze = { item = 'gauze', seconds = 6, anyone = true, self = false },
-    splint = { item = 'splint', seconds = 7, anyone = true, self = false },
-    burncream = { item = 'burncream', seconds = 6, anyone = true, self = true },
+    bandage = { item = 'bandage', seconds = 4, anyone = true, self = true },
+    tourniquet = { item = 'tourniquet', seconds = 3, anyone = true, self = true },
+    gauze = { item = 'gauze', seconds = 5, anyone = true, self = false },
+    splint = { item = 'splint', seconds = 5, anyone = true, self = false },
+    burncream = { item = 'burncream', seconds = 4, anyone = true, self = true },
     painkillers = { item = 'painkillers', seconds = 3, anyone = true, self = true, relief = 2, minutes = 6 },
     morphine = { item = 'morphine', seconds = 4, anyone = false, self = false, relief = 6, minutes = 12, opioid = 3 },
-    saline = { item = 'saline', seconds = 8, anyone = false, self = false, blood = 30, perSecond = 0.35 },
-    adrenaline = { item = 'adrenaline', seconds = 4, anyone = false, self = false },
-    defibrillator = { item = 'defibrillator', seconds = 6, anyone = false, self = false, consume = false },
-    firstaid = { item = 'firstaid', seconds = 10, anyone = true, self = false, revives = true },
-    ifaks = { item = 'ifaks', seconds = 6, anyone = true, self = true, heal = 25, relief = 2, minutes = 4 },
+    saline = { item = 'saline', seconds = 5, anyone = false, self = false, blood = 30 },
+    adrenaline = { item = 'adrenaline', seconds = 3, anyone = false, self = false },
+    defibrillator = { item = 'defibrillator', seconds = 5, anyone = false, self = false, consume = false },
+    firstaid = { item = 'firstaid', seconds = 5, anyone = true, self = false, revives = true },
+    ifaks = { item = 'ifaks', seconds = 5, anyone = true, self = true, heal = 25, relief = 2, minutes = 4 },
 }
 
 Config.Infection = {
@@ -196,6 +210,7 @@ Config.Dispatch = {
     blipSeconds = 300,
     code = '10-52',
     sound = true,
+    alertSeconds = 15,    -- how long a call alert stays up
 }
 
 Config.Vehicles = {
@@ -210,8 +225,8 @@ Config.Vehicles = {
 Config.Stretcher = {
     model = 'v_med_emptybed',
     fromVehicles = { 'ambulance' },
-    push = { offset = vec3(0.0, 1.45, -0.98), rotation = vec3(0.0, 0.0, 90.0) },
-    lie = { offset = vec3(0.0, 0.0, 1.0), rotation = vec3(0.0, 0.0, 90.0) },
+    push = { reach = 0.45, lift = 0.0, turn = 0.0 }, -- lines up in front of you from the model's size. reach: gap to your hands, turn: extra degrees
+    lie = { lift = 1.0, turn = 0.0 },                -- how high the patient lies on it, turn = 180 flips head and feet
 }
 
 Config.Wheelchair = {

@@ -22,6 +22,7 @@ local function lieDown()
 end
 
 local function heal()
+    if not Bed.treat then return end
     local ped = PlayerPedId()
     local health = GetEntityHealth(ped)
     local per = (Config.Recovery or {}).bedHealPerSecond or 2

@@ -31,7 +31,7 @@ local function bestInjury(s, test, id)
     local best, score = nil, -1
     for _, injury in ipairs(s.injuries) do
         if test(injury) then
-            local value = Body.ActiveBleed(injury) * 10 + (injury.sev or 1)
+            local value = (injury.bleed or 0) * 10 + Body.ActiveBleed(injury) * 5 + (injury.sev or 1)
             if value > score then best, score = injury, value end
         end
     end
@@ -39,9 +39,9 @@ local function bestInjury(s, test, id)
 end
 
 local TESTS = {
-    bandage = function(i) return Body.ActiveBleed(i) > 0 and OPEN[i.kind] and not i.treated.bandage end,
+    bandage = function(i) return (i.bleed or 0) > 0 and OPEN[i.kind] and not i.treated.bandage end,
     tourniquet = function(i) return Body.Limbs[i.part] and Body.ActiveBleed(i) > 0 end,
-    gauze = function(i) return Body.ActiveBleed(i) > 0 and not i.treated.gauze end,
+    gauze = function(i) return (i.bleed or 0) > 0 and not i.treated.gauze end,
     splint = function(i) return Body.Limbs[i.part] and i.fracture and not i.treated.splint end,
     burncream = function(i) return i.kind == 'burn' and not i.treated.dressing end,
 }
@@ -79,7 +79,6 @@ local function check(src, target, key, injuryId)
     elseif key == 'saline' then
         if s.status == 'dead' then return false, 'err_patient_gone' end
         if s.blood >= 99 then return false, 'err_blood_full' end
-        if s.iv then return false, 'err_iv_running' end
     elseif key == 'adrenaline' then
         if s.status == 'down' or s.status == 'knockout' then
             if Body.WorstBleed(s.injuries) > 0 then return false, 'err_still_bleeding' end
@@ -141,22 +140,25 @@ local function apply(src, target, key, supply, injury)
         s.opioid = math.min(12, s.opioid + (supply.opioid or 3))
         note = 'treat_morphine'
     elseif key == 'saline' then
-        s.iv = { left = supply.blood or 30, rate = supply.perSecond or 0.35 }
+        s.blood = math.min(100, s.blood + (supply.blood or 30))
         note = 'treat_saline'
     elseif key == 'ifaks' then
         local worst = bestInjury(s, function(i) return Body.ActiveBleed(i) > 0 and Body.ActiveBleed(i) < 3 end)
         if worst then
             worst.bleed = math.max(0, worst.bleed - 1)
             worst.treated.bandage = true
+            if Body.Done(worst) then State.Close(target, s, worst) end
         end
         relieve(s, supply.relief or 2, supply.minutes or 4)
         TriggerClientEvent('XS-Medical:client:addHealth', target, supply.heal or 25)
         note = 'treat_ifaks'
     elseif key == 'firstaid' then
-        for _, i in ipairs(s.injuries) do
+        for n = #s.injuries, 1, -1 do
+            local i = s.injuries[n]
             if Body.ActiveBleed(i) == 1 then
                 i.bleed = 0
                 i.treated.bandage = true
+                if Body.Done(i) then State.Close(target, s, i) end
             end
         end
         if (s.status == 'down' or s.status == 'knockout') and supply.revives then
@@ -198,6 +200,7 @@ local function apply(src, target, key, supply, injury)
         note = nil
     end
 
+    if injury and TESTS[key] and Body.Done(injury) then State.Close(target, s, injury) end
     if s.status == 'down' and (TESTS[key] or key == 'gauze') then Down.Retime(target) end
 
     if note then Patients.Log(target, Text(note, { part = Text('part_' .. (injury and injury.part or 'torso')) }), src, key) end

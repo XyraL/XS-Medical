@@ -230,6 +230,14 @@ function Down.Start(pub)
     pushUI(true)
     playAnim(true)
     TriggerEvent('qbx_medical:client:onPlayerLaststand')
+    TriggerServerEvent('qbx_medical:server:onPlayerLaststand')
+    Down.laststand = true
+    if pub and (pub.status == 'arrest' or pub.status == 'dead') then
+        Down.laststand = false
+        TriggerServerEvent('qbx_medical:server:onPlayerLaststandEnd')
+        TriggerEvent('qbx_medical:client:onPlayerDied')
+        TriggerServerEvent('qbx_medical:server:onPlayerDied')
+    end
     CreateThread(loop)
 end
 
@@ -246,7 +254,14 @@ function Down.Update(pub)
     if changed then
         Down.ClearCrawl()
         playAnim(true)
-        if pub.status == 'arrest' then TriggerEvent('qbx_medical:client:onPlayerDied') end
+        if pub.status == 'arrest' then
+            if Down.laststand then
+                Down.laststand = false
+                TriggerServerEvent('qbx_medical:server:onPlayerLaststandEnd')
+            end
+            TriggerEvent('qbx_medical:client:onPlayerDied')
+            TriggerServerEvent('qbx_medical:server:onPlayerDied')
+        end
     end
 end
 
@@ -256,6 +271,10 @@ function Down.Stop(silent)
     Down.crawlDir, Down.prone, Down.crawling = nil, false, false
     Down.escorted, Down.carried = false, false
     Down.holding = 0
+    if Down.laststand then
+        Down.laststand = false
+        TriggerServerEvent('qbx_medical:server:onPlayerLaststandEnd')
+    end
     LocalPlayer.state:set('invBusy', false, false)
     UI.Send('down', 'close', {})
     if not silent then

@@ -124,7 +124,7 @@ function Down.Revive(src, mode, by)
     local s = State.Get(src)
     mode = mode or 'full'
     if mode == 'full' then
-        s.injuries, s.blood, s.iv, s.opioid = {}, 100.0, nil, 0.0
+        s.injuries, s.blood, s.opioid = {}, 100.0, 0.0
         s.relief, s.reliefUntil = 0, 0
     else
         s.blood = math.max(s.blood, mode == 'field' and 62 or 58)
@@ -171,7 +171,7 @@ function Down.Respawn(src)
     local cid = Framework.GetCitizenId(src)
     Records.Log(cid, 'respawn', Text('log_respawned'), { cause = s.cause }, nil)
 
-    s.injuries, s.blood, s.iv, s.opioid, s.relief, s.reliefUntil = {}, 100.0, nil, 0.0, 0, 0
+    s.injuries, s.blood, s.opioid, s.relief, s.reliefUntil = {}, 100.0, 0.0, 0, 0
     s.status = 'alive'
     s.downAt, s.bleedOutAt, s.arrestAt, s.rhythm, s.respawnAt, s.wakeAt, s.cause, s.called = nil, nil, nil, nil, nil, nil, nil, false
     Compat.Status(src, 'alive')

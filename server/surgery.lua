@@ -71,15 +71,7 @@ lib.callback.register('XS-Medical:server:surgeryEnd', function(src, k, results)
         local injury = State.FindInjury(s, id)
         if injury then
             if results[tostring(id)] == true or results[id] == true then
-                injury.bulletIn, injury.internal = false, false
-                injury.bleed = 0
-                injury.treated.bandage = true
-                injury.infected = false
-                if injury.fracture then
-                    injury.treated.splint = true
-                    injury.sev = 1
-                end
-                if not injury.fracture then State.RemoveInjury(s, id) end
+                State.Close(target, s, injury)
                 fixed = fixed + 1
             else
                 injury.bleed = math.max(injury.bleed, (Config.Surgery or {}).failBleed or 2)

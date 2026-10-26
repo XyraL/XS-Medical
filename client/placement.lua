@@ -3,6 +3,7 @@ Placement = { active = false }
 local cam, ghost, resolve
 local opts
 local preview
+local lift = 0.0
 
 local KEYS = {
     confirm = 191, cancel = 194, forward = 32, back = 33, left = 34, right = 35, up = 22, down = 36,
@@ -40,7 +41,9 @@ local function startPreview(model, vehicle)
     lib.requestModel(hash, 6000)
     if not HasModelLoaded(hash) then return end
     if vehicle then
-        preview = CreateVehicle(hash, ghost.x, ghost.y, ghost.z, ghost.h, false, false)
+        local mn = GetModelDimensions(hash)
+        lift = math.max(0.0, -mn.z)
+        preview = CreateVehicle(hash, ghost.x, ghost.y, ghost.z + lift, ghost.h, false, false)
         SetVehicleDoorsLocked(preview, 4)
     else
         preview = CreateObjectNoOffset(hash, ghost.x, ghost.y, ghost.z, false, false, false)
@@ -120,6 +123,7 @@ function Placement.Start(options)
     Placement.active = true
     hint()
 
+    lift = opts.previewVehicle and 0.9 or 0.0
     if opts.previewModel then startPreview(opts.previewModel, opts.previewVehicle) end
 
     local promised = promise.new()
@@ -196,7 +200,7 @@ function Placement.Start(options)
                 DrawLine(ghost.x, ghost.y, ghost.z + 0.05, tip.x, tip.y, tip.z, 61, 255, 122, 255)
                 DrawLine(ghost.x, ghost.y, ghost.z, ghost.x, ghost.y, ghost.z + 1.6, 61, 255, 122, 200)
                 if preview and DoesEntityExist(preview) then
-                    SetEntityCoordsNoOffset(preview, ghost.x, ghost.y, ghost.z + (opts.previewVehicle and 0.3 or 0.0), false, false, false)
+                    SetEntityCoordsNoOffset(preview, ghost.x, ghost.y, ghost.z + lift, false, false, false)
                     SetEntityHeading(preview, ghost.h)
                 end
             end
@@ -204,7 +208,7 @@ function Placement.Start(options)
             drawExisting()
 
             if IsDisabledControlJustPressed(0, KEYS.confirm) then
-                finish({ x = ghost.x, y = ghost.y, z = ghost.z, w = ghost.h, width = ghost.width, snapped = ghost.snapped == true and ghost.model ~= nil })
+                finish({ x = ghost.x, y = ghost.y, z = ghost.z + (opts.previewVehicle and lift + 0.05 or 0.0), w = ghost.h, width = ghost.width, snapped = ghost.snapped == true and ghost.model ~= nil })
                 break
             end
             if IsDisabledControlJustPressed(0, KEYS.cancel) then

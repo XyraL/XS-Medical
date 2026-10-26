@@ -84,6 +84,15 @@ XS.date = function date(ts) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
+XS.accent = function accent(colour) {
+    const hex = String(colour || '').trim();
+    if (!/^#[0-9a-f]{6}$/i.test(hex)) return;
+    const n = parseInt(hex.slice(1), 16);
+    const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    document.documentElement.style.setProperty('--x-accent', hex);
+    document.documentElement.style.setProperty('--x-ink', lum > 0.5 ? '#0b0b0d' : '#ffffff');
+};
+
 XS.toast = function toast(text, kind) {
     if (!text) return;
     const box = document.getElementById('xsm-toastbox');
@@ -124,12 +133,16 @@ XS.needs = function needs(injury) {
     const out = [];
     const t = injury.treated || {};
     const limb = ['larm', 'rarm', 'lleg', 'rleg'].includes(injury.part);
-    if (injury.bleed >= 2 && limb && !t.tourniquet) out.push('tourniquet');
-    if (injury.bleed > 0 && ['gunshot', 'stab', 'cut', 'crush'].includes(injury.kind) && !t.bandage) out.push('bandage');
-    if (injury.bleed > 0 && !t.gauze) out.push('gauze');
+    const raw = injury.rawBleed !== undefined && injury.rawBleed !== null ? injury.rawBleed : injury.bleed;
+    if (raw > 0 && !(t.tourniquet && (t.bandage || t.gauze))) {
+        if (injury.bleed >= 2 && limb && !t.tourniquet) out.push('tourniquet');
+        if (['gunshot', 'stab', 'cut', 'crush'].includes(injury.kind) && !t.bandage) out.push('bandage');
+        if (!t.gauze) out.push('gauze');
+    }
     if (injury.fracture && limb && !t.splint) out.push('splint');
     if (injury.kind === 'burn' && !t.dressing) out.push('burncream');
     if (injury.surgery) out.push('surgery');
+    if (injury.infected) out.push('antibiotics');
     return out;
 };
 
@@ -147,6 +160,7 @@ window.addEventListener('message', (event) => {
     if (msg.app === 'core' && msg.action === 'boot') {
         XS.T = data.locale || {};
         XS.config = data.config || {};
+        XS.accent(XS.config.accent);
         Object.values(XS.apps).forEach((app) => { if (app.boot) app.boot(); });
         return;
     }

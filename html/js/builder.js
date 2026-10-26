@@ -4,6 +4,7 @@
     let places = [];
     let vehicles = [];
     let defaults = {};
+    let blipDefaults = {};
     let current = null;
     let dirty = false;
     let busy = false;
@@ -14,7 +15,7 @@
     const esc = XS.esc;
 
     const KINDS = {
-        hospital: ['checkin', 'bed', 'surgery', 'storage', 'cabinet', 'duty', 'garage', 'helipad', 'equipment', 'elevator', 'boss', 'board', 'sign', 'pharmacist'],
+        hospital: ['checkin', 'bed', 'surgery', 'storage', 'locker', 'cabinet', 'duty', 'garage', 'helipad', 'equipment', 'elevator', 'boss', 'board', 'sign', 'pharmacist'],
         pharmacy: ['pharmacist', 'sign'],
     };
     const WALL = { board: 'board', sign: 'sign' };
@@ -31,6 +32,7 @@
         }
         if (kind === 'surgery') Object.assign(p, { room: 'OR 1', label: 'Table' });
         if (kind === 'storage') Object.assign(p, { label: 'Storage', slots: 50, weight: 200000, grade: 0 });
+        if (kind === 'locker') Object.assign(p, { label: 'Lockers', slots: 30, weight: 100000 });
         if (kind === 'garage' || kind === 'helipad') Object.assign(p, { grade: 0, vehicles: [], spawn: null });
         if (kind === 'equipment') Object.assign(p, { kind: 'stretcher' });
         if (kind === 'elevator') Object.assign(p, { group: 'Elevator', floor: 'Ground floor' });
@@ -94,6 +96,7 @@
             ${field(t('builder_prop', null, 'Bed prop (empty for a map bed)'), input(kind, i, 'prop', p.prop || ''))}${field(' ', check(kind, i, 'respawn', p.respawn !== false, t('builder_respawn', null, 'Respawn here')))}</div>
             <div class="bl-acts">${p.monitor ? `<button class="bl-btn b-small" data-mon="${i}">${esc(t('builder_monitor_move', null, 'Move monitor'))}</button><button class="bl-btn b-small b-danger" data-monrm="${i}">${esc(t('builder_monitor_remove', null, 'Remove monitor'))}</button>` : `<button class="bl-btn b-small" data-mon="${i}">+ ${esc(t('builder_monitor_add', null, 'Bedside monitor'))}</button>`}</div>`;
         if (kind === 'surgery') return `<div class="bl-grid">${field(t('builder_room', null, 'Room'), input(kind, i, 'room', p.room))}${field(t('builder_label', null, 'Label'), input(kind, i, 'label', p.label))}</div>`;
+        if (kind === 'locker') return `<div class="bl-grid">${field(t('builder_label', null, 'Label'), input(kind, i, 'label', p.label))}${field(t('builder_slots', null, 'Slots'), input(kind, i, 'slots', p.slots, 'number', 'min="5"'))}${field(t('builder_weight', null, 'Max weight'), input(kind, i, 'weight', p.weight, 'number', 'min="1000"'))}</div>`;
         if (kind === 'storage') return `<div class="bl-grid">${field(t('builder_label', null, 'Label'), input(kind, i, 'label', p.label))}${field(t('builder_grade', null, 'Lowest grade'), input(kind, i, 'grade', p.grade, 'number', 'min="0"'))}${field(t('builder_slots', null, 'Slots'), input(kind, i, 'slots', p.slots, 'number', 'min="5"'))}${field(t('builder_weight', null, 'Max weight'), input(kind, i, 'weight', p.weight, 'number', 'min="1000"'))}</div>`;
         if (kind === 'garage' || kind === 'helipad') return `<div class="bl-grid">${field(t('builder_grade', null, 'Lowest grade'), input(kind, i, 'grade', p.grade, 'number', 'min="0"'))}${field(t('builder_spawn', null, 'Spawn spot'), `<button class="bl-btn b-small" data-spawn="${kind}:${i}">${esc(p.spawn ? t('builder_spawn_move', null, 'Move spawn') : t('builder_spawn_set', null, 'Set spawn'))}</button>`)}</div>
             ${field(t('builder_vehicles', null, 'Vehicles (empty uses the config defaults)'), vehicleList(kind, i, p))}`;
@@ -115,16 +118,32 @@
         return t(key, null, kind) + ' ' + (i + 1);
     }
 
+    function blipRow() {
+        const B = blipDefaults[current.kind] || {};
+        const at = current.blipAt;
+        const where = at ? t('builder_blip_placed', { x: Number(at.x).toFixed(1), y: Number(at.y).toFixed(1) }, 'Placed by hand') : t('builder_blip_auto', null, 'Sits on the first point you placed');
+        return `<div class="bl-blip">
+            <label class="bl-check"><input type="checkbox" id="bl-blip" ${current.blip !== false ? 'checked' : ''}>${esc(t('builder_blip', null, 'Map blip'))}</label>
+            <span class="bl-note">${esc(where)}</span>
+            <button class="bl-btn b-small" id="bl-blip-cam">${esc(t('builder_add', null, 'Place with camera'))}</button>
+            <button class="bl-btn b-small" id="bl-blip-here">${esc(t('builder_here', null, 'My spot'))}</button>
+            ${at ? `<button class="bl-btn b-small" id="bl-blip-reset">${esc(t('builder_blip_reset', null, 'Reset'))}</button>` : ''}
+            <span class="bl-sp"></span>
+            <label class="bl-mini">${esc(t('builder_blip_icon', null, 'Icon'))}<input class="bl-in" id="bl-blip-sprite" type="number" min="1" max="900" placeholder="${Number(B.sprite) || 61}" value="${current.blipSprite ? Number(current.blipSprite) : ''}"></label>
+            <label class="bl-mini">${esc(t('builder_blip_colour', null, 'Colour'))}<input class="bl-in" id="bl-blip-colour" type="number" min="0" max="85" placeholder="${Number(B.colour) || 2}" value="${current.blipColour !== undefined && current.blipColour !== null ? Number(current.blipColour) : ''}"></label>
+        </div>`;
+    }
+
     function editor() {
         const kinds = KINDS[current.kind] || KINDS.hospital;
         return `
             <div class="bl-head">
                 ${field(t('builder_name', null, 'Name'), `<input class="bl-in" id="bl-name" style="width:260px" value="${esc(current.name)}">`)}
                 ${field(t('builder_society', null, 'Pays into (empty uses config)'), `<input class="bl-in" id="bl-society" style="width:170px" value="${esc(current.society || '')}">`)}
-                <label class="bl-check" style="margin-bottom:8px"><input type="checkbox" id="bl-blip" ${current.blip !== false ? 'checked' : ''}>${esc(t('builder_blip', null, 'Map blip'))}</label>
                 <span class="bl-sp"></span><span class="bl-dirty" id="bl-dirty">${dirty ? esc(t('builder_unsaved', null, 'Unsaved changes')) : ''}</span>
                 <button class="bl-btn b-go" id="bl-save">${esc(t('save', null, 'Save'))}</button>
                 ${current.id ? `<button class="bl-btn b-danger" id="bl-delete">${esc(t('delete', null, 'Delete'))}</button>` : ''}
+                ${blipRow()}
             </div>
             <div class="bl-body xsm-scroll">${kinds.map((kind) => {
                 const list = XS.list(current.points[kind]);
@@ -179,6 +198,30 @@
         name.addEventListener('input', () => { current.name = name.value; markDirty(); });
         stage.querySelector('#bl-society').addEventListener('input', (e) => { current.society = e.target.value; markDirty(); });
         stage.querySelector('#bl-blip').addEventListener('change', (e) => { current.blip = e.target.checked; markDirty(); });
+        const setBlip = (pos) => {
+            if (!pos) return;
+            current.blipAt = { x: pos.x, y: pos.y, z: pos.z };
+            markDirty();
+            select();
+            render();
+        };
+        stage.querySelector('#bl-blip-cam').addEventListener('click', async () => setBlip(await place('blip', current.blipAt || null, 'point', { label: t('builder_blip_spot', null, 'Map blip') })));
+        stage.querySelector('#bl-blip-here').addEventListener('click', async () => {
+            const res = await XS.rpc('builder:here', {});
+            if (res.ok) setBlip(res.data);
+        });
+        const reset = stage.querySelector('#bl-blip-reset');
+        if (reset) reset.addEventListener('click', () => { delete current.blipAt; markDirty(); select(); render(); });
+        stage.querySelector('#bl-blip-sprite').addEventListener('input', (e) => {
+            const n = Math.floor(Number(e.target.value));
+            if (e.target.value === '' || !n) delete current.blipSprite; else current.blipSprite = n;
+            markDirty();
+        });
+        stage.querySelector('#bl-blip-colour').addEventListener('input', (e) => {
+            const n = Math.floor(Number(e.target.value));
+            if (e.target.value === '' || Number.isNaN(n)) delete current.blipColour; else current.blipColour = n;
+            markDirty();
+        });
         stage.querySelector('#bl-save').addEventListener('click', save);
         const del = stage.querySelector('#bl-delete');
         if (del) del.addEventListener('click', async () => {
@@ -320,6 +363,7 @@
                 places = XS.list(data.places);
                 vehicles = XS.list(data.vehicles);
                 defaults = Object.assign({}, data.peds || {}, { bedProp: data.bedProp });
+                blipDefaults = data.blips || {};
                 open = true;
                 XS.show('xsm-builder', true);
                 render();

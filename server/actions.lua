@@ -25,16 +25,15 @@ function Hospitals.CheckIn(src, place, point, bypass)
     if not Compat.RunHooks('checkIn', { source = src, hospitalName = place.name }) then return false, 'err_cannot_now' end
 
     local C = Config.CheckIn or {}
-    if not bypass and #Framework.Medics(true) >= (C.nurseWhenMedicsBelow or 1) then
+    local bed = Hospitals.FreeBed(place, false)
+    if not bed then
+        if bypass or #Framework.Medics(true) == 0 then return false, 'err_no_beds' end
         Patients.CheckIn(src, place.id)
         if C.pageMedics ~= false then
             pageMedics(Text('page_checkin_title'), Text('page_checkin_text', { name = Framework.GetName(src) or '', hospital = place.name }), point and { x = point.x, y = point.y, z = point.z } or nil)
         end
         return true, { mode = 'queue' }
     end
-
-    local bed = Hospitals.FreeBed(place, false)
-    if not bed then return false, 'err_no_beds' end
 
     local price = math.floor(tonumber(C.price) or 0)
     if price > 0 and not bypass then
@@ -45,17 +44,21 @@ function Hospitals.CheckIn(src, place, point, bypass)
     Hospitals.Occupy(src, place, bed)
     Patients.CheckIn(src, place.id)
     Patients.Bed(src, place.id, bed, 'recovering')
-    s.treatUntil = os.time() + (C.treatSeconds or 20)
-    TriggerClientEvent('XS-Medical:client:toBed', src, bedPublic(place, bed), { seconds = C.treatSeconds or 20, treat = true })
+    local range = type(C.treatSeconds) == 'table' and C.treatSeconds or { tonumber(C.treatSeconds) or 8, tonumber(C.treatSeconds) or 8 }
+    local low = math.floor(range[1] or 5)
+    local high = math.max(low, math.floor(range[2] or low))
+    local seconds = math.min(high, low + math.floor(math.random() * (high - low + 1)))
+    s.treatUntil = os.time() + seconds
+    TriggerClientEvent('XS-Medical:client:toBed', src, bedPublic(place, bed), { seconds = seconds, treat = true })
     return true, { mode = 'bed' }
 end
 
 lib.callback.register('XS-Medical:server:checkIn', function(src, placeId, pointId)
     local place, point = placePoint(placeId, 'checkin', pointId)
     if not point then return false, Text('err_unknown_place') end
-    local ok, err, vars = Hospitals.CheckIn(src, place, point, false)
-    if not ok then return false, Text(err, vars) end
-    return true, vars
+    local ok, info, vars = Hospitals.CheckIn(src, place, point, false)
+    if not ok then return false, Text(info, vars) end
+    return true, info
 end)
 
 lib.callback.register('XS-Medical:server:bedDone', function(src)
@@ -79,6 +82,7 @@ lib.callback.register('XS-Medical:server:putInBed', function(src, target, placeI
     if not Hospitals.Near(src, bed, 5.0) or not Hospitals.Near(target, bed, 6.0) then return false, Text('err_too_far') end
     local other = Hospitals.Occupant(place.id, bed.id)
     if other and other ~= target then return false, Text('err_bed_taken') end
+    if Equipment and Equipment.carrying then Equipment.carrying[target] = nil end
     Hospitals.Occupy(target, place, bed)
     Patients.Attend(target, src)
     Patients.Bed(target, place.id, bed, 'seen')
@@ -126,6 +130,11 @@ lib.callback.register('XS-Medical:server:discharge', function(src, target)
     if not target or not Patients.Get(target) then return false, Text('err_no_patient') end
     local s = State.Get(target)
     if s.status ~= 'alive' then return false, Text('err_cannot_discharge') end
+    for _, injury in ipairs(s.injuries) do
+        if not Body.Done(injury) then return false, Text('err_treat_first') end
+    end
+    Patients.Log(target, Text('log_discharged'), src)
+    Down.Revive(target, 'full', src)
     Patients.Discharge(target, src)
     TriggerClientEvent('XS-Medical:client:leaveBed', target)
     return true
@@ -149,6 +158,15 @@ lib.callback.register('XS-Medical:server:stash', function(src, placeId, pointId)
     local id = ('xsmedical_%s_%s'):format(place.id, point.id)
     local mode = Inventory.OpenStash(src, id, point.label, point.slots, point.weight)
     return true, { mode = mode, id = id, label = point.label, slots = point.slots, weight = point.weight }
+end)
+
+lib.callback.register('XS-Medical:server:locker', function(src, placeId, pointId)
+    local place, point = placePoint(placeId, 'locker', pointId)
+    if not point or not Hospitals.Near(src, point, 3.0) then return false, Text('err_too_far') end
+    if not Util.IsMedicJob(Framework.GetJob(src)) then return false, Text('err_medics_only') end
+    local label = Text('locker_label', { name = Framework.GetName(src) or '' })
+    local mode, id = Inventory.OpenLocker(src, ('xsmedical_locker_%s_%s'):format(place.id, point.id), label, point.slots, point.weight, vector3(point.x, point.y, point.z))
+    return true, { mode = mode, id = id, label = label, slots = point.slots, weight = point.weight }
 end)
 
 local function cabinetItems(job)
@@ -237,9 +255,10 @@ lib.callback.register('XS-Medical:server:spawnVehicle', function(src, placeId, p
     local spawn = point.spawn or point
     local hash = joaat(model)
     local vehicle = 0
-    pcall(function() vehicle = CreateVehicleServerSetter(hash, vehicleType, spawn.x, spawn.y, spawn.z, spawn.w or 0.0) end)
+    local z = spawn.z + 1.0
+    pcall(function() vehicle = CreateVehicleServerSetter(hash, vehicleType, spawn.x, spawn.y, z, spawn.w or 0.0) end)
     if not vehicle or vehicle == 0 then
-        pcall(function() vehicle = CreateVehicle(hash, spawn.x, spawn.y, spawn.z, spawn.w or 0.0, true, true) end)
+        pcall(function() vehicle = CreateVehicle(hash, spawn.x, spawn.y, z, spawn.w or 0.0, true, true) end)
     end
     local waited = 0
     while (not vehicle or vehicle == 0 or not DoesEntityExist(vehicle)) and waited < 3000 do

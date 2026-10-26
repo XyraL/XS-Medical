@@ -12,8 +12,31 @@ local function allowed(job, power)
     return (job.grade or 0) >= ((Config.Grades or {})[power] or 0)
 end
 
+local RECORD_PAGES = { 'records', 'prescribe', 'reports' }
+
+local PAGES_OF = {
+    recordsSearch = RECORD_PAGES, recordsOpen = RECORD_PAGES, recordsSave = { 'records' },
+    rxCreate = { 'prescribe' }, rxVoid = { 'prescribe' },
+    reportsList = { 'reports' }, reportsGet = { 'reports' }, reportsSave = { 'reports' }, reportsDelete = { 'reports' },
+    roster = { 'roster' }, callsign = { 'roster' }, hire = { 'roster' }, setGrade = { 'roster' }, fire = { 'roster' },
+}
+
+function Tablet.PageOn(page)
+    return (((Config.Tablet or {}).pages or {})[page]) ~= false
+end
+
+local function pagesOn(list)
+    if not list then return true end
+    for _, page in ipairs(list) do
+        if Tablet.PageOn(page) then return true end
+    end
+    return false
+end
+
 local function guard(name, power, handler)
+    local pages = PAGES_OF[name]
     lib.callback.register('XS-Medical:server:' .. name, function(src, ...)
+        if not pagesOn(pages) then return false, Text('err_page_off') end
         local job = medic(src)
         if not job then return false, Text('err_medics_only') end
         if power and not allowed(job, power) then return false, Text('err_grade') end
@@ -54,17 +77,67 @@ local function nearby(src, radius)
     return out
 end
 
+local function places()
+    local out = {}
+    for _, place in ipairs(Hospitals.List()) do
+        if place.kind == 'hospital' then
+            local beds, free, waiting = 0, 0, 0
+            for _, bed in ipairs(place.points.bed or {}) do
+                beds = beds + 1
+                if not Hospitals.Occupant(place.id, bed.id) then free = free + 1 end
+            end
+            for _, row in ipairs(Patients.Board(place.id)) do
+                if row.status == 'waiting' then waiting = waiting + 1 end
+            end
+            out[#out + 1] = { id = place.id, name = place.name, beds = beds, free = free, waiting = waiting }
+        end
+    end
+    return out
+end
+
+local function units()
+    local onCall = {}
+    for _, c in ipairs(Calls.List()) do
+        for _, u in ipairs(c.units) do
+            if not onCall[u.src] then onCall[u.src] = c.id end
+        end
+    end
+    local out = {}
+    for _, other in ipairs(Framework.Players()) do
+        local j = Framework.GetJob(other)
+        if Util.IsMedicJob(j) then
+            local otherCid = Framework.GetCitizenId(other)
+            out[#out + 1] = {
+                src = other, cid = otherCid, name = Framework.GetName(other) or '', callsign = callsign(otherCid),
+                gradeLabel = j.gradeLabel or '', onDuty = Framework.IsMedic(j), call = onCall[other],
+            }
+        end
+    end
+    table.sort(out, function(a, b)
+        if a.onDuty ~= b.onDuty then return a.onDuty end
+        return a.name < b.name
+    end)
+    return out
+end
+
+local function callsFor(src)
+    local list = Calls.List()
+    local ped = GetPlayerPed(src)
+    if ped == 0 then return list end
+    local origin = GetEntityCoords(ped)
+    for _, c in ipairs(list) do
+        if c.coords then c.dist = math.floor(#(origin - vector3(c.coords.x, c.coords.y, c.coords.z))) end
+    end
+    return list
+end
+
 guard('tablet', nil, function(src, job)
     local cid = Framework.GetCitizenId(src)
-    local places = {}
-    for _, place in ipairs(Hospitals.List()) do
-        if place.kind == 'hospital' then places[#places + 1] = { id = place.id, name = place.name } end
-    end
     local grades = {}
-    for power, level in pairs(Config.Grades or {}) do grades[power] = allowed(job, power) and true or false end
+    for power in pairs(Config.Grades or {}) do grades[power] = allowed(job, power) and true or false end
     return true, {
-        me = { src = src, name = Framework.GetName(src) or '', callsign = callsign(cid), grade = job.grade, gradeLabel = job.gradeLabel or '', isBoss = job.isBoss, job = job.name, jobLabel = job.label },
-        can = grades, patients = Patients.List(), calls = Calls.List(), places = places, nearby = nearby(src, 12.0),
+        me = { src = src, cid = cid, name = Framework.GetName(src) or '', callsign = callsign(cid), grade = job.grade, gradeLabel = job.gradeLabel or '', isBoss = job.isBoss, job = job.name, jobLabel = job.label, onDuty = Framework.IsMedic(job) },
+        can = grades, patients = Patients.List(), calls = callsFor(src), places = places(), units = units(), nearby = nearby(src, 12.0),
         medicines = Config.Medicines or {}, supplies = (function()
             local out = {}
             for key, s in pairs(Config.Supplies or {}) do out[key] = { item = s.item, label = Inventory.Label(s.item), anyone = s.anyone } end
@@ -101,7 +174,7 @@ guard('patient', nil, function(src, job, target)
         realName = identified and ci.name or nil, cid = identified and Framework.GetCitizenId(target) or nil,
         identified = identified, female = ci.female, near = dist <= 4.0, dist = Util.Round(dist, 1),
         state = pub, visit = v and { room = v.room, status = v.status, hospital = v.hospital and Hospitals.Name(v.hospital) or nil, since = v.since, medic = v.medic and v.medic.name or nil } or nil,
-        timeline = v and v.timeline or {}, record = record,
+        timeline = v and v.timeline or {}, cleared = v and v.cleared or {}, record = record,
     }
 end)
 
@@ -143,8 +216,13 @@ guard('reportsGet', nil, function(_, _, id)
     return true, row
 end)
 
-guard('reportsSave', nil, function(src, _, data)
+guard('reportsSave', nil, function(src, job, data)
     if type(data) ~= 'table' or Util.Text(data.title, 128) == '' then return false, Text('err_report_title') end
+    if data.id then
+        local row = Records.Report(tonumber(data.id))
+        if not row then return false, Text('err_no_record') end
+        if row.author_cid ~= Framework.GetCitizenId(src) and not allowed(job, 'editReports') then return false, Text('err_grade') end
+    end
     local id = Records.SaveReport(src, data)
     return id ~= nil, id
 end)
@@ -153,8 +231,12 @@ guard('reportsDelete', 'deleteReports', function(_, _, id)
     return Records.DeleteReport(tonumber(id)), nil
 end)
 
-guard('calls', nil, function()
-    return true, Calls.List()
+guard('calls', nil, function(src)
+    return true, callsFor(src)
+end)
+
+guard('shift', nil, function()
+    return true, { units = units(), places = places() }
 end)
 
 guard('callTake', nil, function(src, _, id)

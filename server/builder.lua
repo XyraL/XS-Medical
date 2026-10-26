@@ -7,7 +7,7 @@ lib.callback.register('XS-Medical:server:builderOpen', function(src)
     return true, {
         places = Hospitals.List(), vehicles = Framework.Vehicles(),
         peds = { checkin = (Config.Peds or {}).checkin, pharmacist = (Config.Peds or {}).pharmacist },
-        bedProp = (Config.Beds or {}).prop,
+        bedProp = (Config.Beds or {}).prop, blips = Config.Blips or {},
     }
 end)
 

@@ -24,12 +24,12 @@ end
 
 local function addBlip(place)
     if not place.blip then return end
-    local p = firstPoint(place)
+    local p = place.blipAt or firstPoint(place)
     if not p then return end
     local B = (Config.Blips or {})[place.kind] or { sprite = 61, colour = 2, scale = 0.8 }
     local blip = AddBlipForCoord(p.x, p.y, p.z)
-    SetBlipSprite(blip, B.sprite or 61)
-    SetBlipColour(blip, B.colour or 2)
+    SetBlipSprite(blip, place.blipSprite or B.sprite or 61)
+    SetBlipColour(blip, place.blipColour or B.colour or 2)
     SetBlipScale(blip, B.scale or 0.8)
     SetBlipAsShortRange(blip, true)
     BeginTextCommandSetBlipName('STRING')
@@ -42,6 +42,12 @@ local function key(place, kind, p) return ('%s_%s_%s'):format(place.id, kind, p.
 
 local function stashOpen(place, p)
     local ok, info = lib.callback.await('XS-Medical:server:stash', false, place.id, p.id)
+    if not ok then return Framework.Notify(info or Text('err_failed'), 'error') end
+    Inventory.OpenStash(info.mode, info.id, info.label, info.slots, info.weight)
+end
+
+local function locker(place, p)
+    local ok, info = lib.callback.await('XS-Medical:server:locker', false, place.id, p.id)
     if not ok then return Framework.Notify(info or Text('err_failed'), 'error') end
     Inventory.OpenStash(info.mode, info.id, info.label, info.slots, info.weight)
 end
@@ -112,6 +118,12 @@ function Hospital.TakeVehicle(netId)
         Wait(100)
     end
     if vehicle ~= 0 then
+        local untilControl = GetGameTimer() + 1500
+        while not NetworkHasControlOfEntity(vehicle) and GetGameTimer() < untilControl do
+            NetworkRequestControlOfEntity(vehicle)
+            Wait(50)
+        end
+        SetVehicleOnGroundProperly(vehicle)
         Fuel.Set(vehicle, (Config.Vehicles or {}).fuel or 100.0)
         SetVehicleEngineOn(vehicle, true, true, false)
         local ped = PlayerPedId()
@@ -165,10 +177,10 @@ local function elevator(place, p)
 end
 
 local function checkIn(place, p)
-    local medics = GlobalState['xsm:medics'] or 0
+    local price = math.floor(tonumber((Config.CheckIn or {}).price) or 0)
     Menu.Open({
         title = Text('checkin_title'), subtitle = place.name,
-        note = medics >= ((Config.CheckIn or {}).nurseWhenMedicsBelow or 1) and Text('checkin_queue_note') or Text('checkin_nurse_note', { price = (Config.CheckIn or {}).price or 0 }),
+        note = price > 0 and Text('checkin_nurse_note', { price = price }) or Text('checkin_nurse_free'),
         items = { { id = 'checkin', label = Text('checkin_confirm') } },
     }, function()
         local ok, info = lib.callback.await('XS-Medical:server:checkIn', false, place.id, p.id)
@@ -286,19 +298,20 @@ function Hospital.Build(places)
 
         local simple = {
             { kind = 'storage', label = 'opt_storage', icon = 'fas fa-box-archive', medicOnly = true, fn = stashOpen },
+            { kind = 'locker', label = 'opt_locker', icon = 'fas fa-lock', staffOnly = true, fn = locker },
             { kind = 'cabinet', label = 'opt_cabinet', icon = 'fas fa-briefcase-medical', medicOnly = true, fn = cabinet },
-            { kind = 'boss', label = 'opt_boss', icon = 'fas fa-user-tie', medicOnly = true, fn = function() Tablet.Open('roster') end },
+            { kind = 'boss', label = 'opt_boss', icon = 'fas fa-user-tie', medicOnly = true, page = 'roster', fn = function() Tablet.Open('roster') end },
             { kind = 'elevator', label = 'opt_elevator', icon = 'fas fa-elevator', fn = elevator },
             { kind = 'equipment', label = 'opt_equipment', icon = 'fas fa-wheelchair', fn = equipment },
             { kind = 'surgery', label = 'opt_surgery', icon = 'fas fa-syringe', medicOnly = true, fn = surgeryAt },
         }
         for _, def in ipairs(simple) do
-            for _, p in ipairs(P[def.kind] or {}) do
+            for _, p in ipairs((not def.page or Tablet.PageOn(def.page)) and P[def.kind] or {}) do
                 local k = key(place, def.kind, p)
                 local label = Text(def.label)
                 if def.kind == 'equipment' then label = Text(p.kind == 'wheelchair' and 'opt_take_wheelchair' or 'opt_take_stretcher') end
                 Target.AddPoint(k, v3(p), 1.1, {
-                    { label = label, icon = def.icon, canInteract = function() return not def.medicOnly or medic() end, onSelect = function() def.fn(place, p) end },
+                    { label = label, icon = def.icon, canInteract = function() return (not def.medicOnly or medic()) and (not def.staffOnly or Util.IsMedicJob(Framework.Job())) end, onSelect = function() def.fn(place, p) end },
                 })
                 Hospital.keys[#Hospital.keys + 1] = k
             end

@@ -153,6 +153,21 @@ if IsDuplicityVersion() then
         return 'legacy'
     end
 
+    function Inventory.OpenLocker(src, base, label, slots, weight, coords)
+        if Inventory.name == 'ox_inventory' then
+            exports.ox_inventory:RegisterStash(base, label, slots, weight, true, nil, coords)
+            return 'client', base
+        end
+        local id = ('%s_%s'):format(base, Framework.GetCitizenId(src) or tostring(src))
+        if Inventory.name == 'qb-inventory' then
+            local ok = pcall(function()
+                exports['qb-inventory']:OpenInventory(src, id, { label = label, maxweight = weight, slots = slots })
+            end)
+            if ok then return 'server', id end
+        end
+        return 'legacy', id
+    end
+
     lib.callback.register('XS-Medical:server:itemCount', function(src, item)
         return Inventory.Count(src, tostring(item or ''))
     end)

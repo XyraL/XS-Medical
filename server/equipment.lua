@@ -34,7 +34,7 @@ local function spawn(src, kind, x, y, z, heading)
     SetEntityHeading(obj, heading or 0.0)
     FreezeEntityPosition(obj, false)
     local netId = NetworkGetNetworkIdFromEntity(obj)
-    Equipment.owned[netId] = { owner = src, kind = kind }
+    Equipment.owned[netId] = { owner = src, kind = kind, holder = src }
     Entity(obj).state:set('xsmEquipment', kind, true)
     return netId
 end
@@ -61,6 +61,28 @@ lib.callback.register('XS-Medical:server:stretcherFromVehicle', function(src, ve
     local netId = spawn(src, 'stretcher', back.x, back.y, back.z, heading)
     if not netId then return false, Text('err_spawn_failed') end
     return true, { netId = netId, kind = 'stretcher' }
+end)
+
+lib.callback.register('XS-Medical:server:equipmentGrab', function(src, netId)
+    netId = tonumber(netId)
+    local entry = netId and Equipment.owned[netId]
+    if not entry then return false, Text('err_no_equipment') end
+    local ent = NetworkGetEntityFromNetworkId(netId)
+    if ent == 0 or not DoesEntityExist(ent) then
+        Equipment.owned[netId] = nil
+        return false, Text('err_no_equipment')
+    end
+    if not near(src, GetEntityCoords(ent), 4.0) then return false, Text('err_too_far') end
+    if entry.kind == 'stretcher' and not Framework.IsMedicSource(src) then return false, Text('err_medics_only') end
+    if entry.holder and entry.holder ~= src and GetPlayerName(entry.holder) then return false, Text('err_equipment_held') end
+    entry.holder = src
+    return true, { netId = netId, kind = entry.kind }
+end)
+
+RegisterNetEvent('XS-Medical:server:equipmentDrop', function(netId)
+    local src = source
+    local entry = Equipment.owned[tonumber(netId) or -1]
+    if entry and entry.holder == src then entry.holder = nil end
 end)
 
 lib.callback.register('XS-Medical:server:equipmentStore', function(src, netId)
@@ -175,6 +197,9 @@ end)
 AddEventHandler('playerDropped', function()
     local src = source
     clearOwned(src)
+    for _, entry in pairs(Equipment.owned) do
+        if entry.holder == src then entry.holder = nil end
+    end
     if Equipment.carrying[src] then Equipment.carrying[src] = nil end
     for patient, info in pairs(Equipment.carrying) do
         if info.by == src then

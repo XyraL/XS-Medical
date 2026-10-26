@@ -1,5 +1,9 @@
 Tablet = { open = false, patient = nil, prop = nil }
 
+function Tablet.PageOn(page)
+    return (((Config.Tablet or {}).pages or {})[page]) ~= false
+end
+
 local function holdProp()
     if not (Config.Tablet or {}).prop then return end
     local ped = PlayerPedId()
@@ -26,7 +30,7 @@ function Tablet.Open(page, patient)
         return
     end
     local item = (Config.Tablet or {}).item
-    if item and Inventory.Count(item) < 1 then
+    if item and (Config.Tablet or {}).needItem and Inventory.Count(item) < 1 then
         Framework.Notify(Text('err_no_item', { item = Inventory.Label(item) }), 'error')
         return
     end
@@ -35,6 +39,7 @@ function Tablet.Open(page, patient)
         Framework.Notify(data or Text('err_failed'), 'error')
         return
     end
+    if page and not Tablet.PageOn(page) then page = 'patient' end
     Tablet.open = true
     Tablet.patient = patient
     data.page = page or 'patient'
@@ -73,7 +78,7 @@ local RELAY = {
     patient = 'patient', nearby = 'nearby', recordsSearch = 'recordsSearch', recordsOpen = 'recordsOpen',
     recordsSave = 'recordsSave', rxCreate = 'rxCreate', rxVoid = 'rxVoid', reportsList = 'reportsList',
     reportsGet = 'reportsGet', reportsSave = 'reportsSave', reportsDelete = 'reportsDelete', calls = 'calls',
-    callLeave = 'callLeave', callClose = 'callClose', roster = 'roster', callsign = 'callsign', hire = 'hire',
+    callLeave = 'callLeave', callClose = 'callClose', shift = 'shift', roster = 'roster', callsign = 'callsign', hire = 'hire',
     setGrade = 'setGrade', fire = 'fire', hospital = 'hospital', discharge = 'discharge',
 }
 
@@ -93,6 +98,10 @@ UI.Handle('tablet:callTake', function(payload)
         Calls.Assigned(call)
     end
     return ok, call
+end)
+
+UI.Handle('tablet:street', function()
+    return true, Calls.Street()
 end)
 
 UI.Handle('tablet:waypoint', function(payload)

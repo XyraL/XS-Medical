@@ -321,6 +321,16 @@ local function candidate()
                 end
             end
         end
+        for _, name in ipairs(m.models) do
+            local obj = GetClosestObjectOfType(coords.x, coords.y, coords.z, 2.5, joaat(name), false, false, false)
+            if obj and obj ~= 0 then
+                local dist = #(coords - GetEntityCoords(obj))
+                if dist < bestDist then
+                    local list = usable(m.options, obj)
+                    if #list > 0 then best, bestDist, bestEntity = list, dist, obj end
+                end
+            end
+        end
     end
 
     return best, bestEntity

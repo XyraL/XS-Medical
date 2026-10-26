@@ -1,20 +1,74 @@
-Equip = { held = nil, heldKind = nil, onIt = false, onNet = nil, carrying = false, carriedBy = nil }
+Equip = { held = nil, heldKind = nil, onIt = false, onNet = nil, carrying = false, carriedBy = nil, known = {} }
 
-local PUSH = { dict = 'anim@heists@box_carry@', clip = 'idle' }
+local BOX = { dict = 'anim@heists@box_carry@', clip = 'idle' }
+local PUSHES = {
+    { dict = 'amb@prop_human_bum_shopping_cart@male@base', clip = 'base' },
+    BOX,
+}
 local LIE = { dict = 'anim@gangops@morgue@table@', clip = 'body_search' }
 local SIT = { dict = 'missfinale_c2leadinoutfin_c_int', clip = '_leadin_loop2_lester' }
 local CARRIER = { dict = 'missfinale_c2mcs_1', clip = 'fin_c2_mcs_1_camman' }
 local CARRIED = { dict = 'nm', clip = 'firemans_carry' }
+local picked = nil
+local models = nil
 
-local function shapes(kind)
-    if kind == 'wheelchair' then
-        local W = Config.Wheelchair or {}
-        return W.push or { offset = vec3(0.0, -0.3, -0.73), rotation = vec3(195.0, 180.0, 180.0), bone = 28422 },
-            W.seat or { offset = vec3(0.0, 0.0, 0.4), rotation = vec3(0.0, 0.0, 180.0) }
+local function equipModels()
+    if models then return models end
+    models = {
+        [joaat((Config.Stretcher or {}).model or 'v_med_emptybed')] = 'stretcher',
+        [joaat((Config.Wheelchair or {}).model or 'prop_wheelchair_01')] = 'wheelchair',
+    }
+    return models
+end
+
+local function pushAnim(kind)
+    if kind == 'wheelchair' then return BOX end
+    if picked then return picked end
+    local list = {}
+    local custom = (Config.Stretcher or {}).anim
+    if type(custom) == 'table' and custom.dict then list[1] = custom end
+    for _, a in ipairs(PUSHES) do list[#list + 1] = a end
+    picked = BOX
+    for _, a in ipairs(list) do
+        if DoesAnimDictExist(a.dict) then picked = a break end
     end
-    local S = Config.Stretcher or {}
-    return S.push or { offset = vec3(0.0, 1.45, -0.98), rotation = vec3(0.0, 0.0, 90.0) },
-        S.lie or { offset = vec3(0.0, 0.0, 1.0), rotation = vec3(0.0, 0.0, 90.0) }
+    return picked
+end
+
+local function bounds(ent)
+    local mn, mx = GetModelDimensions(GetEntityModel(ent))
+    return mn, mx, (mx.x - mn.x) > (mx.y - mn.y)
+end
+
+local function pushShape(ent, kind)
+    if kind == 'wheelchair' then
+        return (Config.Wheelchair or {}).push or { offset = vec3(0.0, -0.3, -0.73), rotation = vec3(195.0, 180.0, 180.0), bone = 28422 }
+    end
+    local P = (Config.Stretcher or {}).push or {}
+    if P.offset and P.rotation then return P end
+    local mn, mx, alongX = bounds(ent)
+    local cx, cy = (mn.x + mx.x) / 2, (mn.y + mx.y) / 2
+    local reach = tonumber(P.reach) or 0.45
+    local x, y, rz
+    if alongX then
+        rz, x, y = 90.0, cy, (mx.x - mn.x) / 2 + reach - cx
+    else
+        rz, x, y = 0.0, -cx, (mx.y - mn.y) / 2 + reach - cy
+    end
+    return { offset = vec3(x, y, -0.98 - mn.z + (tonumber(P.lift) or 0.0)), rotation = vec3(0.0, 0.0, rz + (tonumber(P.turn) or 0.0)) }
+end
+
+local function seatShape(ent, kind)
+    if kind == 'wheelchair' then
+        return (Config.Wheelchair or {}).seat or { offset = vec3(0.0, 0.0, 0.4), rotation = vec3(0.0, 0.0, 180.0) }
+    end
+    local L = (Config.Stretcher or {}).lie or {}
+    if L.offset and L.rotation then return L end
+    local mn, mx, alongX = bounds(ent)
+    return {
+        offset = vec3((mn.x + mx.x) / 2, (mn.y + mx.y) / 2, mn.z + (tonumber(L.lift) or 1.0)),
+        rotation = vec3(0.0, 0.0, (alongX and 90.0 or 180.0) + (tonumber(L.turn) or 0.0)),
+    }
 end
 
 local function entityFromNet(netId, timeoutMs)
@@ -38,59 +92,151 @@ local function control(ent)
     return NetworkHasControlOfEntity(ent)
 end
 
+function Equip.KindOf(ent)
+    if not ent or ent == 0 or not DoesEntityExist(ent) then return nil end
+    if not equipModels()[GetEntityModel(ent)] or not NetworkGetEntityIsNetworked(ent) then return nil end
+    return Entity(ent).state.xsmEquipment
+end
+
+function Equip.RiderOf(ent)
+    for _, player in ipairs(GetActivePlayers()) do
+        local ped = GetPlayerPed(player)
+        if ped ~= 0 and IsEntityAttachedToEntity(ped, ent) then return GetPlayerServerId(player) end
+    end
+    return nil
+end
+
+function Equip.Under(ped)
+    if not ped or ped == 0 then return nil end
+    local ent = GetEntityAttachedTo(ped)
+    if ent ~= 0 and Equip.KindOf(ent) then return ent end
+    return nil
+end
+
+function Equip.Nearest(kind, range, free)
+    local coords = GetEntityCoords(PlayerPedId())
+    local best, bestDist = nil, range or 4.0
+    for ent, k in pairs(Equip.known) do
+        if DoesEntityExist(ent) and (not kind or k == kind) and not IsEntityAttached(ent) then
+            local d = #(GetEntityCoords(ent) - coords)
+            if d < bestDist and (not free or not Equip.RiderOf(ent)) then best, bestDist = ent, d end
+        end
+    end
+    if Equip.held and (not kind or Equip.heldKind == kind) then
+        local ent = NetworkDoesNetworkIdExist(Equip.held) and NetworkGetEntityFromNetworkId(Equip.held) or 0
+        if ent ~= 0 and (not free or not Equip.RiderOf(ent)) then return ent end
+    end
+    return best
+end
+
+function Equip.Patient(range)
+    local me = PlayerPedId()
+    local coords = GetEntityCoords(me)
+    local best, bestDist = nil, range or 3.0
+    for _, player in ipairs(GetActivePlayers()) do
+        local ped = GetPlayerPed(player)
+        if ped ~= me and ped ~= 0 and not IsEntityAttached(ped) and not IsPedInAnyVehicle(ped, false) then
+            local d = #(GetEntityCoords(ped) - coords)
+            if d < bestDist then best, bestDist = GetPlayerServerId(player), d end
+        end
+    end
+    return best
+end
+
+CreateThread(function()
+    while true do
+        local found = {}
+        local wanted = equipModels()
+        for _, obj in ipairs(GetGamePool('CObject')) do
+            if wanted[GetEntityModel(obj)] and NetworkGetEntityIsNetworked(obj) then
+                local kind = Entity(obj).state.xsmEquipment
+                if kind then found[obj] = kind end
+            end
+        end
+        Equip.known = found
+        Wait(1000)
+    end
+end)
+
 function Equip.Hold(netId, kind)
     Equip.Drop()
     local ent = entityFromNet(netId)
     if ent == 0 then return Framework.Notify(Text('err_spawn_failed'), 'error') end
     control(ent)
     local ped = PlayerPedId()
-    local push = shapes(kind)
-    local o, r = push.offset, push.rotation
-    local bone = push.bone and GetPedBoneIndex(ped, push.bone) or 0
-    AttachEntityToEntity(ent, ped, bone, o.x, o.y, o.z, r.x, r.y, r.z, false, false, true, false, 2, true)
+    local shape = pushShape(ent, kind)
+    local o, r = shape.offset, shape.rotation
+    local bone = shape.bone and GetPedBoneIndex(ped, shape.bone) or 0
+    AttachEntityToEntity(ent, ped, bone, o.x, o.y, o.z, r.x, r.y, r.z, false, false, false, false, 2, true)
     Equip.held, Equip.heldKind = netId, kind
-    lib.requestAnimDict(PUSH.dict, 3000)
+    Equip.known[ent] = kind
+    local anim = pushAnim(kind)
+    lib.requestAnimDict(anim.dict, 3000)
     CreateThread(function()
         lib.showTextUI(Text('equipment_hint'), { position = 'right-center' })
         while Equip.held == netId do
             local p = PlayerPedId()
-            if not IsEntityPlayingAnim(p, PUSH.dict, PUSH.clip, 3) then
-                TaskPlayAnim(p, PUSH.dict, PUSH.clip, 8.0, -8.0, -1, 49, 0.0, false, false, false)
+            if not IsEntityPlayingAnim(p, anim.dict, anim.clip, 3) then
+                TaskPlayAnim(p, anim.dict, anim.clip, 8.0, -8.0, -1, 49, 0.0, false, false, false)
             end
             DisableControlAction(0, 21, true)
             DisableControlAction(0, 22, true)
+            DisableControlAction(0, 23, true)
             DisableControlAction(0, 24, true)
             DisableControlAction(0, 25, true)
-            if IsControlJustReleased(0, 73) then Equip.Drop() end
-            if IsControlJustReleased(0, 47) then Equip.Store() end
+            if IsControlJustReleased(0, 73) or IsPedRagdoll(p) or IsPedInAnyVehicle(p, false) or Down.active then
+                Equip.Drop()
+            elseif IsControlJustReleased(0, 47) then
+                Equip.Store()
+            end
             Wait(0)
         end
         lib.hideTextUI()
-        StopAnimTask(PlayerPedId(), PUSH.dict, PUSH.clip, 1.0)
+        StopAnimTask(PlayerPedId(), anim.dict, anim.clip, 1.0)
     end)
+end
+
+function Equip.Grab(ent)
+    if Equip.held then return end
+    local ok, info = lib.callback.await('XS-Medical:server:equipmentGrab', false, NetworkGetNetworkIdFromEntity(ent))
+    if not ok then return Framework.Notify(info or Text('err_failed'), 'error') end
+    Equip.Hold(info.netId, info.kind)
 end
 
 function Equip.Drop()
     if not Equip.held then return end
-    local ent = entityFromNet(Equip.held, 500)
+    local netId = Equip.held
+    local ent = entityFromNet(netId, 500)
     Equip.held, Equip.heldKind = nil, nil
     if ent ~= 0 then
         DetachEntity(ent, true, true)
         PlaceObjectOnGroundProperly(ent)
     end
+    TriggerServerEvent('XS-Medical:server:equipmentDrop', netId)
 end
 
-function Equip.Store()
-    local netId = Equip.held
+function Equip.Store(netId)
+    netId = netId or Equip.held
     if not netId then return end
-    Equip.held, Equip.heldKind = nil, nil
+    if netId == Equip.held then Equip.held, Equip.heldKind = nil, nil end
     local ok, err = lib.callback.await('XS-Medical:server:equipmentStore', false, netId)
     if not ok and err then Framework.Notify(err, 'error') end
 end
 
-function Equip.PlaceOn(target)
-    if not Equip.held then return Framework.Notify(Text('err_no_equipment'), 'error') end
-    local ok, err = lib.callback.await('XS-Medical:server:placeOn', false, target, Equip.held)
+function Equip.PutOn(ent, target)
+    local ok, err = lib.callback.await('XS-Medical:server:placeOn', false, target, NetworkGetNetworkIdFromEntity(ent))
+    if not ok then Framework.Notify(err or Text('err_failed'), 'error') end
+end
+
+function Equip.PlaceOn(target, kind)
+    kind = kind or 'stretcher'
+    local ent = Equip.Nearest(kind, 4.0, true)
+    if not ent then return Framework.Notify(Text(kind == 'wheelchair' and 'err_no_wheelchair' or 'err_no_equipment'), 'error') end
+    Equip.PutOn(ent, target)
+end
+
+function Equip.TakeOff(target)
+    local ok, err = lib.callback.await('XS-Medical:server:takeOff', false, target)
     if not ok then Framework.Notify(err or Text('err_failed'), 'error') end
 end
 
@@ -165,13 +311,14 @@ RegisterNetEvent('XS-Medical:client:placeOn', function(netId, kind)
     if ent == 0 then return end
     if Down and Down.ClearCrawl then Down.ClearCrawl() end
     local ped = PlayerPedId()
-    local _, seat = shapes(kind)
+    local seat = seatShape(ent, kind)
     Equip.onIt, Equip.onNet = true, netId
     if Down.active then Down.carried = true end
     local anim = kind == 'wheelchair' and SIT or LIE
     lib.requestAnimDict(anim.dict, 3000)
     AttachEntityToEntity(ped, ent, 0, seat.offset.x, seat.offset.y, seat.offset.z, seat.rotation.x, seat.rotation.y, seat.rotation.z, false, false, false, false, 2, true)
     TaskPlayAnim(ped, anim.dict, anim.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false)
+    if kind == 'wheelchair' and not Down.active then lib.showTextUI(Text('wheelchair_hint'), { position = 'right-center' }) end
     CreateThread(function()
         while Equip.onIt and Equip.onNet == netId do
             local p = PlayerPedId()
@@ -180,8 +327,9 @@ RegisterNetEvent('XS-Medical:client:placeOn', function(netId, kind)
                 TriggerServerEvent('XS-Medical:server:leaveEquipment')
                 Equip.Release()
             end
-            Wait(250)
+            Wait(0)
         end
+        if kind == 'wheelchair' then lib.hideTextUI() end
     end)
 end)
 
@@ -237,9 +385,11 @@ RegisterNetEvent('hospital:client:SetEscortingState', function(state)
     Equip.escorting = state == true
 end)
 
+local function me() return GetPlayerServerId(PlayerId()) end
+
 function Equip.RegisterTargets()
-    local models = (Config.Stretcher or {}).fromVehicles or { 'ambulance' }
-    Target.AddModels('ambulance', models, {
+    local vehicles = (Config.Stretcher or {}).fromVehicles or { 'ambulance' }
+    Target.AddModels('ambulance', vehicles, {
         {
             label = Text('opt_take_stretcher'), icon = 'fas fa-bed-pulse', distance = 4.0,
             canInteract = function() return Me.IsMedic() and not Equip.held end,
@@ -250,9 +400,62 @@ function Equip.RegisterTargets()
             end,
         },
         {
+            label = Text('opt_stow_stretcher'), icon = 'fas fa-truck-ramp-box', distance = 4.0,
+            canInteract = function() return Me.IsMedic() and Equip.heldKind == 'stretcher' end,
+            onSelect = function() Equip.Store() end,
+        },
+        {
             label = Text('opt_unload'), icon = 'fas fa-person-arrow-down-to-line', distance = 4.0,
             canInteract = function() return Me.IsMedic() end,
             onSelect = function(vehicle) Equip.Unload(vehicle) end,
+        },
+    })
+
+    local S, W = Config.Stretcher or {}, Config.Wheelchair or {}
+    Target.AddModels('equipment', { S.model or 'v_med_emptybed', W.model or 'prop_wheelchair_01' }, {
+        {
+            label = Text('opt_push_stretcher'), icon = 'fas fa-bed-pulse', distance = 2.5,
+            canInteract = function(ent) return Equip.KindOf(ent) == 'stretcher' and Me.IsMedic() and not Equip.held and not IsEntityAttached(ent) end,
+            onSelect = function(ent) Equip.Grab(ent) end,
+        },
+        {
+            label = Text('opt_push_wheelchair'), icon = 'fas fa-wheelchair', distance = 2.5,
+            canInteract = function(ent) return Equip.KindOf(ent) == 'wheelchair' and not Equip.held and not IsEntityAttached(ent) end,
+            onSelect = function(ent) Equip.Grab(ent) end,
+        },
+        {
+            label = Text('opt_patient_on'), icon = 'fas fa-person-arrow-down-to-line', distance = 2.5,
+            canInteract = function(ent)
+                local kind = Equip.KindOf(ent)
+                if not kind or (kind == 'stretcher' and not Me.IsMedic()) then return false end
+                return not Equip.RiderOf(ent) and Equip.Patient(3.0) ~= nil
+            end,
+            onSelect = function(ent)
+                local target = Equip.Patient(3.0)
+                if target then Equip.PutOn(ent, target) end
+            end,
+        },
+        {
+            label = Text('opt_sit_wheelchair'), icon = 'fas fa-chair', distance = 2.0,
+            canInteract = function(ent) return Equip.KindOf(ent) == 'wheelchair' and not Equip.RiderOf(ent) and not IsEntityAttached(ent) and not Down.active end,
+            onSelect = function(ent) Equip.PutOn(ent, me()) end,
+        },
+        {
+            label = Text('opt_patient_off'), icon = 'fas fa-person-walking-arrow-right', distance = 2.5,
+            canInteract = function(ent)
+                if not Equip.KindOf(ent) then return false end
+                local rider = Equip.RiderOf(ent)
+                return rider ~= nil and rider ~= me()
+            end,
+            onSelect = function(ent)
+                local rider = Equip.RiderOf(ent)
+                if rider then Equip.TakeOff(rider) end
+            end,
+        },
+        {
+            label = Text('opt_put_away'), icon = 'fas fa-box-archive', distance = 2.5,
+            canInteract = function(ent) return Equip.KindOf(ent) ~= nil and Me.IsMedic() and not IsEntityAttached(ent) and not Equip.RiderOf(ent) end,
+            onSelect = function(ent) Equip.Store(NetworkGetNetworkIdFromEntity(ent)) end,
         },
     })
 end

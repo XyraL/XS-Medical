@@ -72,7 +72,12 @@ function Records.Open(cid)
     local record = shape(row)
     record.history = MySQL.query.await('SELECT `id`, `kind`, `summary`, `medic_name`, `created_at` FROM `xs_medical_history` WHERE `citizenid` = ? ORDER BY `id` DESC LIMIT 60', { cid }) or {}
     record.prescriptions = Records.Prescriptions(cid, false)
-    record.reports = MySQL.query.await('SELECT `id`, `title`, `author_name`, `created_at` FROM `xs_medical_reports` WHERE `citizenid` = ? ORDER BY `id` DESC LIMIT 30', { cid }) or {}
+    record.reports = MySQL.query.await('SELECT `id`, `title`, `author_name`, `created_at`, `data` FROM `xs_medical_reports` WHERE `citizenid` = ? ORDER BY `id` DESC LIMIT 30', { cid }) or {}
+    for _, row in ipairs(record.reports) do
+        local d = Db.Decode(row.data, {})
+        row.incidentAt, row.category, row.outcome = d.incidentAt, d.category, d.outcome
+        row.data = nil
+    end
     return record
 end
 
@@ -147,27 +152,81 @@ function Records.Fill(id, cid)
     return row
 end
 
-function Records.SaveReport(by, data)
-    local cid = Util.Text(data.cid, 64)
-    local id = MySQL.insert.await('INSERT INTO `xs_medical_reports` (`citizenid`, `patient_name`, `title`, `body`, `data`, `author_cid`, `author_name`) VALUES (?, ?, ?, ?, ?, ?, ?)', {
-        cid, Util.Text(data.patient, 96), Util.Text(data.title, 128), Util.Lines(data.body, 6000),
-        Db.Json({ timeline = data.timeline, vitals = data.vitals, injuries = data.injuries }),
+local CATEGORIES = { trauma = true, medical = true, traffic = true, assault = true, overdose = true, fire = true, other = true }
+local OUTCOMES = { scene = true, transported = true, admitted = true, refused = true, deceased = true }
+
+local function lines(list, most, size)
+    local out = {}
+    for _, value in ipairs(type(list) == 'table' and list or {}) do
+        local text = Util.Text(value, size)
+        if text ~= '' and #out < most then out[#out + 1] = text end
+    end
+    return out
+end
+
+local function reportData(raw)
+    local v = type(raw.vitals) == 'table' and raw.vitals or {}
+    local crew = {}
+    for _, c in ipairs(type(raw.crew) == 'table' and raw.crew or {}) do
+        local name = type(c) == 'table' and Util.Text(c.name, 96) or ''
+        if name ~= '' and #crew < 8 then crew[#crew + 1] = { cid = Util.Text(c.cid, 64), name = name, callsign = Util.Text(c.callsign, 16) } end
+    end
+    local now = os.time()
+    local at = math.floor(tonumber(raw.incidentAt) or now)
+    if at < now - 86400 * 3650 or at > now + 86400 then at = now end
+    return {
+        v = 2, incidentAt = at,
+        category = CATEGORIES[raw.category] and raw.category or 'other',
+        outcome = OUTCOMES[raw.outcome] and raw.outcome or 'scene',
+        location = Util.Text(raw.location, 80), destination = Util.Text(raw.destination, 64),
+        complaint = Util.Text(raw.complaint, 160), callId = tonumber(raw.callId) and math.floor(tonumber(raw.callId)) or nil,
+        crew = crew,
+        vitals = {
+            hr = Util.Text(v.hr, 8), bp = Util.Text(v.bp, 12), spo2 = Util.Text(v.spo2, 8), resp = Util.Text(v.resp, 8),
+            temp = Util.Text(v.temp, 8), pain = Util.Text(v.pain, 8), avpu = Util.Text(v.avpu, 2),
+        },
+        injuries = lines(raw.injuries, 30, 160),
+        treatments = lines(raw.treatments, 40, 160),
+    }
+end
+
+function Records.SaveReport(by, raw)
+    local cid = Util.Text(raw.cid, 64)
+    local data = reportData(raw)
+    local id = tonumber(raw.id)
+    if id then
+        data.editedBy = Framework.GetName(by) or ''
+        data.editedAt = os.time()
+        MySQL.update.await('UPDATE `xs_medical_reports` SET `citizenid` = ?, `patient_name` = ?, `title` = ?, `body` = ?, `data` = ? WHERE `id` = ?', {
+            cid, Util.Text(raw.patient, 96), Util.Text(raw.title, 128), Util.Lines(raw.body, 6000), Db.Json(data), id,
+        })
+        return id
+    end
+    id = MySQL.insert.await('INSERT INTO `xs_medical_reports` (`citizenid`, `patient_name`, `title`, `body`, `data`, `author_cid`, `author_name`) VALUES (?, ?, ?, ?, ?, ?, ?)', {
+        cid, Util.Text(raw.patient, 96), Util.Text(raw.title, 128), Util.Lines(raw.body, 6000), Db.Json(data),
         Framework.GetCitizenId(by) or '', Framework.GetName(by) or '',
     })
-    if cid ~= '' then Records.Log(cid, 'report', Text('log_report', { title = Util.Text(data.title, 80) }), { id = id }, by) end
+    if cid ~= '' and id then Records.Log(cid, 'report', Text('log_report', { title = Util.Text(raw.title, 80) }), { id = id }, by) end
     return id
 end
 
 function Records.Reports(term)
     term = Util.Text(term, 48)
     local rows
+    local cols = 'SELECT `id`, `citizenid`, `patient_name`, `title`, `author_name`, `author_cid`, `created_at`, `data` FROM `xs_medical_reports`'
     if term ~= '' then
         local like = '%' .. term:gsub('[%%_]', '') .. '%'
-        rows = MySQL.query.await('SELECT `id`, `citizenid`, `patient_name`, `title`, `author_name`, `created_at` FROM `xs_medical_reports` WHERE `patient_name` LIKE ? OR `title` LIKE ? OR `citizenid` = ? ORDER BY `id` DESC LIMIT 40', { like, like, term })
+        rows = MySQL.query.await(cols .. ' WHERE `patient_name` LIKE ? OR `title` LIKE ? OR `citizenid` = ? OR `author_name` LIKE ? ORDER BY `id` DESC LIMIT 40', { like, like, term, like })
     else
-        rows = MySQL.query.await('SELECT `id`, `citizenid`, `patient_name`, `title`, `author_name`, `created_at` FROM `xs_medical_reports` ORDER BY `id` DESC LIMIT 40')
+        rows = MySQL.query.await(cols .. ' ORDER BY `id` DESC LIMIT 40')
     end
-    return rows or {}
+    rows = rows or {}
+    for _, row in ipairs(rows) do
+        local d = Db.Decode(row.data, {})
+        row.incidentAt, row.category, row.outcome = d.incidentAt, d.category, d.outcome
+        row.data = nil
+    end
+    return rows
 end
 
 function Records.Report(id)

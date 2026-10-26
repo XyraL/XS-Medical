@@ -22,11 +22,11 @@ function Compat.Status(src, status)
     bag:set('isDead', down or dead, true)
     bag:set('dead', down or dead, true)
     refreshPlayerData(src)
-    if down then
-        TriggerEvent('qbx_medical:server:onPlayerLaststand')
-    elseif dead and status == 'arrest' then
-        TriggerEvent('qbx_medical:server:onPlayerDied')
-    end
+end
+
+function Compat.Bleed(src, level)
+    local bag = Player(src).state
+    if bag['qbx_medical:bleedLevel'] ~= level then bag:set('qbx_medical:bleedLevel', level, true) end
 end
 
 function Compat.RunHooks(name, payload)

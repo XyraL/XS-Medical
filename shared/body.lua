@@ -103,6 +103,19 @@ function Body.NeedsSurgery(injury)
     return injury and (injury.bulletIn == true or injury.internal == true or (injury.fracture == true and (injury.sev or 1) >= 3))
 end
 
+function Body.Done(injury)
+    if not injury or injury.infected or Body.NeedsSurgery(injury) then return false end
+    local t = injury.treated or {}
+    if (injury.bleed or 0) > 0 and not (t.tourniquet and (t.bandage or t.gauze)) then return false end
+    if injury.fracture and not t.splint then return false end
+    if injury.kind == 'burn' and not t.dressing then return false end
+    return true
+end
+
+function Body.Treated(injury)
+    return injury ~= nil and type(injury.treated) == 'table' and next(injury.treated) ~= nil
+end
+
 function Body.Painful(injury)
     if not injury then return 0 end
     local base = ({ gunshot = 3, stab = 3, cut = 1, blunt = 1, burn = 3, crush = 3, concussion = 2 })[injury.kind] or 1

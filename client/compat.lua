@@ -86,7 +86,33 @@ end)
 RegisterNetEvent('hospital:client:ambulanceAlert', function(coords, text)
     if not Me.IsMedic() then return end
     local c = coords and { x = coords.x, y = coords.y, z = coords.z } or nil
-    UI.Send('pager', 'page', { title = Text('page_alert_title'), text = text or '', coords = c })
+    UI.Send('alert', 'page', { title = Text('page_alert_title'), text = text or '', coords = c })
+end)
+
+RegisterNetEvent('qbx_ambulancejob:client:checkIn', function(hospitalName)
+    local coords = GetEntityCoords(PlayerPedId())
+    local want = type(hospitalName) == 'string' and hospitalName:lower() or nil
+    local function nearest(byName)
+        local best, bestPlace, bestDist = nil, nil, 4.0
+        for _, place in ipairs(Me.places or {}) do
+            if place.kind == 'hospital' and (not byName or (place.name or ''):lower():find(byName, 1, true)) then
+                for _, p in ipairs(place.points.checkin or {}) do
+                    local d = #(coords - vector3(p.x, p.y, p.z))
+                    if d < bestDist then best, bestPlace, bestDist = p, place, d end
+                end
+            end
+        end
+        return best, bestPlace
+    end
+    local point, place = nil, nil
+    if want then point, place = nearest(want) end
+    if not point then point, place = nearest(nil) end
+    if not point then return Framework.Notify(Text('err_too_far'), 'error') end
+    CreateThread(function()
+        local ok, info = lib.callback.await('XS-Medical:server:checkIn', false, place.id, point.id)
+        if not ok then return Framework.Notify(info or Text('err_failed'), 'error') end
+        if type(info) == 'table' and info.mode == 'queue' then Framework.Notify(Text('checkin_queued'), 'success') end
+    end)
 end)
 
 RegisterNetEvent('hospital:client:RespawnAtHospital', function()

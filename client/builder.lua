@@ -14,6 +14,44 @@ local function hide()
     UI.Focus('builder', false)
 end
 
+local function label(x, y, z, text)
+    local onScreen, sx, sy = World3dToScreen2d(x, y, z)
+    if not onScreen then return end
+    SetTextScale(0.28, 0.28)
+    SetTextFont(0)
+    SetTextColour(220, 255, 230, 220)
+    SetTextCentre(true)
+    SetTextOutline()
+    BeginTextCommandDisplayText('STRING')
+    AddTextComponentSubstringPlayerName(text)
+    EndTextCommandDisplayText(sx, sy)
+end
+
+local function spawnBox(p, s, kind)
+    local heli = kind == 'helipad'
+    local halfW, halfL = heli and 2.2 or 1.25, heli and 2.2 or 3.1
+    local h = math.rad(s.w or 0.0)
+    local fx, fy = -math.sin(h), math.cos(h)
+    local rx, ry = fy, -fx
+    local found, ground = GetGroundZFor_3dCoord(s.x, s.y, s.z + 1.5, false)
+    local z = ((found == true or found == 1) and ground or s.z) + 0.05
+    local c = {
+        vector3(s.x + fx * halfL + rx * halfW, s.y + fy * halfL + ry * halfW, z),
+        vector3(s.x + fx * halfL - rx * halfW, s.y + fy * halfL - ry * halfW, z),
+        vector3(s.x - fx * halfL - rx * halfW, s.y - fy * halfL - ry * halfW, z),
+        vector3(s.x - fx * halfL + rx * halfW, s.y - fy * halfL + ry * halfW, z),
+    }
+    for i = 1, 4 do
+        local a, b = c[i], c[i % 4 + 1]
+        DrawLine(a.x, a.y, a.z, b.x, b.y, b.z, 47, 191, 107, 255)
+    end
+    local tip = vector3(s.x + fx * (halfL + 1.2), s.y + fy * (halfL + 1.2), z)
+    DrawLine(s.x, s.y, z, tip.x, tip.y, tip.z, 47, 191, 107, 255)
+    DrawMarker(heli and 34 or 36, s.x, s.y, z + 1.4, 0.0, 0.0, 0.0, 0.0, 0.0, s.w or 0.0, 1.2, 1.2, 1.2, 47, 191, 107, 170, false, false, 2, false)
+    DrawLine(p.x, p.y, p.z + 0.1, s.x, s.y, z, 47, 191, 107, 90)
+    if Builder.hidden then label(s.x, s.y, z + 2.2, Text('builder_spawn')) end
+end
+
 function Builder.Open()
     local ok, data = lib.callback.await('XS-Medical:server:builderOpen', false)
     if not ok then return Framework.Notify(data or Text('err_not_admin'), 'error') end
@@ -23,22 +61,16 @@ function Builder.Open()
     CreateThread(function()
         while Builder.open do
             if Builder.place and not Placement.active then
+                local at = Builder.place.blipAt
+                if type(at) == 'table' and at.x then
+                    DrawMarker(2, at.x, at.y, at.z + 1.2, 0.0, 0.0, 0.0, 180.0, 0.0, 0.0, 0.5, 0.5, 0.5, 47, 191, 107, 200, true, true, 2, false)
+                    if Builder.hidden then label(at.x, at.y, at.z + 1.7, Text('builder_blip_spot')) end
+                end
                 for kind, list in pairs(Builder.place.points or {}) do
                     for _, p in ipairs(list) do
+                        if (kind == 'garage' or kind == 'helipad') and type(p.spawn) == 'table' and p.spawn.x then spawnBox(p, p.spawn, kind) end
                         DrawMarker(28, p.x, p.y, p.z + 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 61, 255, 122, 120, false, false, 2, false)
-                        if Builder.hidden then
-                            local onScreen, sx, sy = World3dToScreen2d(p.x, p.y, p.z + 0.35)
-                            if onScreen then
-                                SetTextScale(0.28, 0.28)
-                                SetTextFont(0)
-                                SetTextColour(220, 255, 230, 220)
-                                SetTextCentre(true)
-                                SetTextOutline()
-                                BeginTextCommandDisplayText('STRING')
-                                AddTextComponentSubstringPlayerName(Text('point_' .. kind))
-                                EndTextCommandDisplayText(sx, sy)
-                            end
-                        end
+                        if Builder.hidden then label(p.x, p.y, p.z + 0.35, Text('point_' .. kind)) end
                     end
                 end
             end

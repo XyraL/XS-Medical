@@ -3,7 +3,7 @@ Hospitals = { places = {}, order = {}, beds = {}, vehicles = {} }
 local KINDS = { hospital = true, pharmacy = true }
 
 Hospitals.Types = {
-    checkin = true, bed = true, surgery = true, storage = true, cabinet = true, duty = true, garage = true,
+    checkin = true, bed = true, surgery = true, storage = true, locker = true, cabinet = true, duty = true, garage = true,
     helipad = true, equipment = true, elevator = true, boss = true, board = true, sign = true, pharmacist = true,
 }
 
@@ -44,6 +44,10 @@ local function sanitizePoint(kind, raw)
         p.slots = Util.Clamp(math.floor(tonumber(raw.slots) or 50), 5, 200)
         p.weight = Util.Clamp(math.floor(tonumber(raw.weight) or 200000), 1000, 5000000)
         p.grade = Util.Clamp(math.floor(tonumber(raw.grade) or 0), 0, 50)
+    elseif kind == 'locker' then
+        p.label = str(raw.label, 32, 'Lockers')
+        p.slots = Util.Clamp(math.floor(tonumber(raw.slots) or 30), 5, 200)
+        p.weight = Util.Clamp(math.floor(tonumber(raw.weight) or 100000), 1000, 5000000)
     elseif kind == 'garage' or kind == 'helipad' then
         p.spawn = point(raw.spawn) or point(raw)
         p.grade = Util.Clamp(math.floor(tonumber(raw.grade) or 0), 0, 50)
@@ -87,6 +91,11 @@ function Hospitals.Sanitize(raw)
         blip = raw.blip ~= false, points = {},
         society = str(raw.society, 32, ''),
     }
+    if type(raw.blipAt) == 'table' then place.blipAt = point(raw.blipAt) end
+    local sprite = math.floor(tonumber(raw.blipSprite) or 0)
+    if sprite >= 1 and sprite <= 900 then place.blipSprite = sprite end
+    local colour = tonumber(raw.blipColour)
+    if colour and colour >= 0 and colour <= 85 then place.blipColour = math.floor(colour) end
     local seen = {}
     for t in pairs(Hospitals.Types) do
         local list = {}
@@ -129,7 +138,7 @@ function Hospitals.Publish()
 end
 
 function Hospitals.Save(place)
-    local data = Db.Json({ blip = place.blip, points = place.points, society = place.society })
+    local data = Db.Json({ blip = place.blip, blipAt = place.blipAt, blipSprite = place.blipSprite, blipColour = place.blipColour, points = place.points, society = place.society })
     if place.id and Hospitals.places[place.id] then
         MySQL.update.await('UPDATE `xs_medical_places` SET `kind` = ?, `name` = ?, `data` = ? WHERE `id` = ?', { place.kind, place.name, data, place.id })
     else
@@ -299,11 +308,6 @@ CreateThread(function()
             if not GetPlayerName(occ.src) then
                 Hospitals.beds[key] = nil
                 changed = true
-            else
-                local s = State.Peek(occ.src)
-                if s and s.status == 'alive' and Body.WorstBleed(s.injuries) == 0 and s.blood < 100 then
-                    s.blood = math.min(100, s.blood + 0.25)
-                end
             end
         end
         if changed then GlobalState['xsm:beds'] = Hospitals.BedMap() end

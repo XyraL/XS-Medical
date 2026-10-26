@@ -103,6 +103,14 @@ function Patients.Log(src, text, by, key)
     end
 end
 
+function Patients.Cleared(src, text)
+    local v = Patients.Get(src)
+    if not v then return end
+    v.cleared = v.cleared or {}
+    v.cleared[#v.cleared + 1] = Util.Text(text, 120)
+    if #v.cleared > 30 then table.remove(v.cleared, 1) end
+end
+
 function Patients.CheckIn(src, hospitalId)
     local v = Patients.Get(src, true)
     v.identified = true

@@ -3,7 +3,7 @@
 <p align="center">An all-in-one EMS and medical script for <strong>QBox</strong> and <strong>QBCore</strong>. Replaces qbx_medical, qbx_ambulancejob and qb-ambulancejob.</p>
 
 <p align="center">
-  <a href="https://github.com/XyraL/XS-Medical/releases"><img src="https://img.shields.io/github/v/release/XyraL/XS-Medical?style=flat-square&color=3dff7a&label=release" alt="Latest release"></a>
+  <a href="https://github.com/XyraL/XS-Medical/releases"><img src="https://img.shields.io/github/v/release/XyraL/XS-Medical?include_prereleases&style=flat-square&color=3dff7a&label=release" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/framework-QBox%20%7C%20QBCore-55dcff?style=flat-square" alt="framework">
   <img src="https://img.shields.io/badge/price-free-30d158?style=flat-square" alt="price">
   <a href="https://xyralscripts.dev/docs-xs-medical"><img src="https://img.shields.io/badge/docs-xyralscripts.dev-a889ff?style=flat-square" alt="docs"></a>
@@ -19,9 +19,11 @@
 
 ---
 
-XS-Medical turns getting hurt into something to roleplay. A bullet lands in a body part and stays there until a surgeon takes it out. A leg bleeds until someone gets a tourniquet on it. Medics work from a tablet that looks like a bedside monitor, with the patient's heart trace, blood pressure and oxygen moving in real time.
+XS-Medical turns getting hurt into something to roleplay. A bullet lands in a body part and stays there until a surgeon takes it out. A leg bleeds until someone gets a tourniquet on it. Medics work from a tablet in the same style as XS-MDT, with a live monitor showing the patient's heart trace, blood pressure and oxygen in real time.
 
 It is the whole EMS job in one resource: hospitals you build in game, beds, check-in, NPC pharmacists, ambulances, a medic tablet with records and prescriptions, built-in medical dispatch, and screens on the hospital walls that show who is in which room.
+
+This is a beta. Everything is in and working, but it has not been through many servers yet. If something breaks or feels wrong, tell me on Discord.
 
 ## Features
 
@@ -31,16 +33,19 @@ It is the whole EMS job in one resource: hospitals you build in game, beds, chec
 - Down, out cold, no pulse: crawl, call for help, or wait for CPR and a defibrillator
 - Broken legs limp, broken arms shake your aim, head knocks blur your vision
 - Twelve supplies, each for a job: bandage, tourniquet, pressure dressing, splint, burn dressing, painkillers, morphine, IV saline, adrenaline, defibrillator, first aid kit and IFAK
-- Medic tablet styled as a bedside monitor: live vitals, injuries, timeline, calls, records, prescriptions, roster, reports and beds
+- Medic tablet in the XS-MDT style: live monitor, body map, injuries, timeline, calls, records, prescriptions, roster, reports and beds
+- Call alerts on screen: press Y to take the call and set GPS, U to hide it
 - Surgery in the operating theatre, as a three-step minigame per wound
 - Prescriptions written on the tablet, filled by NPC pharmacists who pull the patient's record
 - Patients nobody has identified show as Jane or John Doe until a medic checks their ID
 - Patient boards, door signs and bedside monitors drawn on the hospital walls, updating live
 - Built-in medical dispatch, and calls sent on to XS-Dispatch, ps-dispatch, qs-dispatch, cd_dispatch, core_dispatch, rcore_dispatch or linden_outlawalert if you run one
-- In-game builder for hospitals and pharmacies: beds, check-in, operating tables, storage, supply cabinets, duty, garages, helipads, stretchers, wheelchairs, elevators, management, boards, signs and pharmacists
+- In-game builder for hospitals and pharmacies: beds, check-in, operating tables, storage, personal lockers, supply cabinets, duty, garages, helipads, stretchers, wheelchairs, elevators, management, boards, signs and pharmacists
 - Ambulances and helicopters picked from your own vehicles list, with keys and fuel
-- Stretchers, wheelchairs and carrying, and loading patients into the back of an ambulance
-- Hospital check-in with an NPC nurse when no medics are on duty, and a waiting list when there are
+- Stretchers and wheelchairs you push, set down and pick back up, carrying, and loading patients into the back of an ambulance
+- Everything a medic does also works by targeting the patient: check, treat, CPR, stretcher, wheelchair, bed, surgery, ambulance and bill
+- Care reports with the incident time, patient, crew, vitals, injuries, treatment, outcome and a narrative
+- Hospital check-in: a nurse puts you in a bed and heals you for a fee, medics on duty or not. Lying in a bed on your own does nothing until a medic treats you
 - Scripts that call qbx_medical, qbx_ambulancejob or qb-ambulancejob keep working
 - Works with ox_target, qb-target, sleepless_interact, interact or qtarget, or E without one
 
@@ -82,9 +87,10 @@ Medics are anyone with a job named `ambulance`, `ems` or `doctor`, or a job of t
 | Beds | Patients lie here. Aim at a bed in your map and press F to snap to it. Give beds a room name |
 | Operating tables | Where surgeons operate |
 | Storage | A shared stash for medics on duty |
+| Lockers | Every medic's own stash. Only they can open it, on or off duty |
 | Supply cabinets | Free supplies for medics on duty, set in `Config.Cabinet` |
 | Duty clocks | Clock on and off |
-| Garages and helipads | Pick the vehicles from your vehicles list, then set where they spawn |
+| Garages and helipads | Pick the vehicles from your vehicles list, then set where they spawn. A ghost of the vehicle shows exactly where it will appear |
 | Stretchers and wheelchairs | Where staff grab one |
 | Elevators | Floors with the same elevator name link up |
 | Management | Opens the roster for bosses |
@@ -93,6 +99,8 @@ Medics are anyone with a job named `ambulance`, `ems` or `doctor`, or a job of t
 | Pharmacists | Fills prescriptions and sells over the counter |
 
 Beds can carry a **bedside monitor**: a screen next to the bed showing the live vitals of whoever is lying in it.
+
+Each place has a **map blip**. It sits on the first point you placed until you put it somewhere with the camera or your own spot. You can also give it its own icon and colour.
 
 Pharmacies are their own places. Make one with **+ Pharmacy** and drop a pharmacist anywhere on the map.
 
@@ -128,6 +136,8 @@ A passer-by calls it in for you some of the time if you do not.
 
 Medics use the target on a patient, or open the tablet with **F7** (`/medtablet`). The tablet's Patient page shows each wound and what it needs. Click one to treat it.
 
+Take a stretcher from the back of an ambulance or a stretcher point and push it. **X** sets it down and **G** puts it away. Target a stretcher on the floor to push it again, put the nearest patient on it or take them off. Wheelchairs work the same way, and anyone can sit in one.
+
 | Supply | Does | Who |
 |---|---|---|
 | Bandage | Slows bleeding from a wound | Anyone, on themselves too |
@@ -137,7 +147,7 @@ Medics use the target on a patient, or open the tablet with **F7** (`/medtablet`
 | Burn dressing | Covers a burn | Anyone, on themselves too |
 | Painkillers | Takes the edge off the pain | Anyone, on themselves too |
 | Morphine | Strong pain relief. Too much slows the breathing | Medics |
-| IV saline | Puts blood volume back over time | Medics |
+| IV saline | Puts blood volume back | Medics |
 | Adrenaline | Wakes a downed patient whose bleeding has stopped, or helps restart a heart | Medics |
 | Defibrillator | Shocks a heart that has stopped. Not used up | Medics |
 | First aid kit | Gets someone up if they are not bleeding badly | Anyone |
@@ -145,19 +155,25 @@ Medics use the target on a patient, or open the tablet with **F7** (`/medtablet`
 
 CPR needs no item. Everything is in `Config.Supplies`, including who can use what.
 
-Wounds left open for half an hour turn infected. Amoxicillin from the pharmacy clears them.
+Each treatment takes 3 to 5 seconds. A wound is gone the moment nothing is left to do on it: the bleeding stopped and dressed, the break splinted, the burn covered, the surgery done. A tourniquet holds a bleed but still needs a dressing. Leave it like that for half an hour and the wound gets infected, and then it needs amoxicillin from the pharmacy.
 
 ## The medic tablet
 
 | Page | What is on it |
 |---|---|
-| Patient | Live vitals, heart trace, injuries with what each needs, the visit timeline and actions |
-| Calls | Medical calls with GPS, take or leave a call |
-| Records | Search anyone. Blood type, allergies, conditions, notes, history and prescriptions |
-| Prescribe | Write a prescription for the pharmacy |
+| Patient | Live monitor, body map, injuries with what each needs, the visit timeline and actions |
+| Calls | The call queue, who is on each call, which medics are free, beds free and the waiting room |
+| Hospital | Every bed and who is in it, and everyone on the board |
+| Patient records | Search anyone. Blood type, allergies, conditions, notes, history and prescriptions |
+| Prescriptions | Write a prescription for the pharmacy |
+| Care reports | Full patient care reports: incident time, the patient, the crew, vitals, injuries, treatment, outcome and a narrative. Writers can edit their own |
 | Roster | Who is on duty and their callsigns. Bosses hire, fire and promote here |
-| Reports | Patient care reports, filled in from the visit timeline |
-| Hospital | Every bed and who is in it, and who is waiting |
+
+The tablet colour is `Config.Tablet.accent`. It starts as the green XS-MDT uses for EMS.
+
+Medics open it with F7, `/medtablet`, the `medical_tablet` item, or by examining a patient. Set `Config.Tablet.needItem = true` if they should need the item to open it at all.
+
+**Using another MDT?** Turn off any of the record pages in `Config.Tablet.pages`: records, prescriptions, care reports and the roster. Patient, Calls and Hospital always stay, because treating, call alerts and beds live there.
 
 Records and prescriptions stay hidden until the patient's ID is checked.
 
@@ -183,7 +199,7 @@ Names can be full, first name and initial, or initials only (`Config.Screens.nam
 
 ## Dispatch
 
-Calls for help, passer-by reports, `/911e` and officer-down calls go to every medic on duty, on the tablet and as a pager message. If you run XS-Dispatch, ps-dispatch, qs-dispatch, cd_dispatch, core_dispatch, rcore_dispatch or linden_outlawalert, they get the call too. Pick one in `Config.Bridges.dispatch`, or set it to `'none'`.
+Calls for help, passer-by reports, `/911e` and officer-down calls go to every medic on duty, on the tablet and as an alert on screen. Press **Y** on the alert to take the call and set GPS, or **U** to hide it. Players can rebind both keys. If you run XS-Dispatch, ps-dispatch, qs-dispatch, cd_dispatch, core_dispatch, rcore_dispatch or linden_outlawalert, they get the call too. Pick one in `Config.Bridges.dispatch`, or set it to `'none'`.
 
 ## Coming from qbx_medical or qb-ambulancejob
 
@@ -191,7 +207,9 @@ There is nothing to move. `isdead`, `inlaststand` and `armor` are kept in the sa
 
 - qbx_medical exports such as `Revive`, `Heal`, `IsDead`, `IsLaststand` and `GetPlayerStatus`
 - qb-ambulancejob events such as `hospital:client:Revive`, `hospital:client:HealInjuries` and `hospital:server:ambulanceAlert`
-- The `qbx_medical:deathState` and `isDead` state bags, for radial menus and radios
+- The `qbx_medical:deathState`, `qbx_medical:bleedLevel` and `isDead` state bags, for radial menus and radios
+- qbx_medical's down and death events on both sides, so radios, phones and inventories react the same
+- qbx_ambulancejob's `CheckIn` export and `qbx_ambulancejob:client:checkIn` event
 - txAdmin's heal button
 
 Admin menus that revive through the old client events are trusted once a minute per player. Turn that off with `Config.Compat.trustClientRevive` if you only revive with `/revive`, txAdmin or the `Revive` export.
@@ -202,6 +220,8 @@ Admin menus that revive through the old client events are trusted once a minute 
 |---|---|---|
 | `/medicalbuilder` | Admins | Opens the builder |
 | `/medtablet` (F7) | Medics | Opens the tablet |
+| `/medrespond` (Y) | Medics | Takes the call on the alert and sets GPS |
+| `/medhide` (U) | Medics | Hides the call alert |
 | `/injuries` | Everyone | Shows your own wounds |
 | `/911e message` | Everyone | Calls medics to you |
 | `/revive [id]` | Admins | Revives and heals |

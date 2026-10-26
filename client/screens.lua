@@ -78,7 +78,7 @@ function Screens.Build(places)
         for _, p in ipairs(place.points.sign or {}) do
             local tl, tr, bl, br, normal, center = corners({ x = p.x, y = p.y, z = p.z, h = p.w, width = p.width, height = p.width * 0.625 })
             Screens.list[#Screens.list + 1] = {
-                id = ('s%s_%s'):format(place.id, p.id), kind = 'sign', place = place.id, room = p.room,
+                id = ('s%s_%s'):format(place.id, p.id), kind = 'sign', place = place.id, room = p.room, placeName = place.name,
                 center = center, normal = normal, quad = { tl, tr, bl, br },
             }
         end
@@ -118,7 +118,7 @@ local function payload(screen)
         for _, row in ipairs(GlobalState['xsm:board:' .. tostring(screen.place)] or {}) do
             if (row.room or ''):lower() == (screen.room or ''):lower() then found = row break end
         end
-        return { kind = 'sign', room = screen.room, row = found, labels = labels }
+        return { kind = 'sign', room = screen.room, row = found, place = screen.placeName, clock = clock, labels = labels }
     end
     local occupant = (Me.beds or {})[('%s:%s'):format(screen.place, screen.bed)]
     local vitals = occupant and Player(occupant).state.xsm or nil

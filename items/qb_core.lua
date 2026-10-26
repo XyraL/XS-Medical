@@ -16,3 +16,4 @@
 ['oxycodone'] = { name = 'oxycodone', label = 'Oxycodone', weight = 30, type = 'item', image = 'oxycodone.png', unique = false, useable = true, shouldClose = true, description = 'Prescription pain relief.' },
 ['amoxicillin'] = { name = 'amoxicillin', label = 'Amoxicillin', weight = 30, type = 'item', image = 'amoxicillin.png', unique = false, useable = true, shouldClose = true, description = 'Prescription antibiotic. Clears an infected wound.' },
 ['diazepam'] = { name = 'diazepam', label = 'Diazepam', weight = 30, type = 'item', image = 'diazepam.png', unique = false, useable = true, shouldClose = true, description = 'Prescription. Calms the nerves.' },
+['medical_tablet'] = { name = 'medical_tablet', label = 'Medical Tablet', weight = 800, type = 'item', image = 'medical_tablet.png', unique = true, useable = true, shouldClose = true, description = 'Patients, calls, records and beds. Medics only.' },

@@ -6,7 +6,7 @@ local LIVE = { down = true, knockout = true, arrest = true, dead = true }
 local function blank()
     return {
         status = 'alive', blood = 100.0, injuries = {}, relief = 0, reliefUntil = 0, opioid = 0.0,
-        iv = nil, downAt = nil, bleedOutAt = nil, arrestAt = nil, rhythm = nil, respawnAt = nil, wakeAt = nil,
+        downAt = nil, bleedOutAt = nil, arrestAt = nil, rhythm = nil, respawnAt = nil, wakeAt = nil,
         cause = nil, lastCall = 0, nextId = 1, adrenalineAt = 0, dirty = false, savedAt = 0, bed = nil,
     }
 end
@@ -57,7 +57,7 @@ function State.Load(src)
         s.opioid = Util.Clamp(tonumber(saved.opioid) or 0, 0, 12)
         for _, raw in ipairs(saved.injuries or {}) do
             local injury = cleanInjury(raw, s.nextId)
-            if injury then
+            if injury and not (Body.Treated(injury) and Body.Done(injury)) then
                 s.injuries[#s.injuries + 1] = injury
                 s.nextId = math.max(s.nextId, injury.id) + 1
             end
@@ -91,7 +91,7 @@ function State.Forget(src)
 end
 
 local function relevant(s)
-    return s.status ~= 'alive' or #s.injuries > 0 or s.blood < 99.5 or s.relief > 0 or s.opioid > 0.1 or s.iv ~= nil or s.bed ~= nil
+    return s.status ~= 'alive' or #s.injuries > 0 or s.blood < 99.5 or s.relief > 0 or s.opioid > 0.1 or s.bed ~= nil
 end
 
 function State.Relief(s)
@@ -120,7 +120,7 @@ function State.Public(src, s)
     end
     return {
         status = s.status, blood = Util.Round(s.blood, 0), injuries = injuries, vitals = State.Vitals(src, s),
-        relief = State.Relief(s), opioid = Util.Round(s.opioid, 1), iv = s.iv and Util.Round(s.iv.left, 0) or nil,
+        relief = State.Relief(s), opioid = Util.Round(s.opioid, 1),
         bleedOutIn = s.bleedOutAt and math.max(0, s.bleedOutAt - now) or nil,
         arrestLeft = s.arrestAt and math.max(0, s.arrestAt + (Config.Arrest.seconds or 240) - now) or nil,
         respawnIn = s.respawnAt and math.max(0, s.respawnAt - now) or nil,
@@ -141,6 +141,7 @@ end
 
 function State.Broadcast(src, s, vitals)
     local bag = Player(src).state
+    if Compat and Compat.Bleed then Compat.Bleed(src, Body.WorstBleed(s.injuries)) end
     if not relevant(s) then
         if bag.xsm ~= nil then bag:set('xsm', nil, true) end
         return
@@ -196,6 +197,23 @@ function State.RemoveInjury(s, id)
     return false
 end
 
+function State.Close(src, s, injury)
+    if not State.RemoveInjury(s, injury.id) then return false end
+    if Patients and Patients.Cleared then
+        Patients.Cleared(src, Text('log_wound_done', { part = Text('part_' .. injury.part), kind = Text('kind_' .. injury.kind) }))
+    end
+    return true
+end
+
+function State.Sweep(src, s)
+    local closed = 0
+    for i = #s.injuries, 1, -1 do
+        local injury = s.injuries[i]
+        if Body.Treated(injury) and Body.Done(injury) and State.Close(src, s, injury) then closed = closed + 1 end
+    end
+    return closed
+end
+
 function State.FindInjury(s, id)
     id = tonumber(id)
     for _, injury in ipairs(s.injuries) do
@@ -209,7 +227,7 @@ function State.Heal(src, opts)
     local s = State.Get(src)
     s.injuries = opts.keepInjuries and s.injuries or {}
     s.blood = opts.blood or 100.0
-    s.iv, s.opioid = nil, opts.keepInjuries and s.opioid or 0.0
+    s.opioid = opts.keepInjuries and s.opioid or 0.0
     if not opts.keepInjuries then s.relief, s.reliefUntil = 0, 0 end
     State.Sync(src, s)
 end
@@ -322,14 +340,6 @@ local function tickPlayer(src, s, now)
         changed = true
     elseif s.blood < 100 and s.status == 'alive' then
         s.blood = math.min(100, s.blood + (B.regenPerMinute or 1.5) / 60)
-    end
-
-    if s.iv then
-        local step = math.min(s.iv.left, s.iv.rate)
-        s.iv.left = s.iv.left - step
-        s.blood = math.min(100, s.blood + step)
-        if s.iv.left <= 0.01 or s.blood >= 100 then s.iv = nil end
-        changed = true
     end
 
     if s.opioid > 0 then s.opioid = math.max(0, s.opioid - 1 / 180) end
