@@ -414,3 +414,9 @@ lib.callback.register('XS-Medical:server:billAnswer', function(src, id, accept)
     Records.Log(Framework.GetCitizenId(src), 'bill', Text('log_billed', { amount = bill.amount, reason = bill.reason }), nil, bill.from)
     return true
 end)
+
+Framework.OnUnloaded(function(src)
+    for id, bill in pairs(Tablet.bills or {}) do
+        if bill.from == src or bill.to == src then Tablet.bills[id] = nil end
+    end
+end)

@@ -88,6 +88,8 @@ end
 function State.Forget(src)
     State.Save(src, true)
     State.players[tonumber(src) or -1] = nil
+    local bag = Player(src).state
+    if bag.xsm ~= nil then bag:set('xsm', nil, true) end
 end
 
 local function relevant(s)

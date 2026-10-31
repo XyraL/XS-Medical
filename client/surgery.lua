@@ -28,8 +28,9 @@ function Surgery.Begin(target, place, point)
     if not ok then return Framework.Notify(info or Text('err_failed'), 'error') end
     Surgery.active = true
     Surgery.key = info.key
-    lib.requestAnimDict(DOCTOR.dict, 3000)
-    TaskPlayAnim(PlayerPedId(), DOCTOR.dict, DOCTOR.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false)
+    if Util.LoadAnim(DOCTOR.dict, 3000) then
+        TaskPlayAnim(PlayerPedId(), DOCTOR.dict, DOCTOR.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false)
+    end
     UI.Send('surgery', 'open', info)
     UI.Focus('surgery', true)
     CreateThread(function()
@@ -72,18 +73,30 @@ RegisterNetEvent('XS-Medical:client:toTable', function(point)
     SetEntityCoords(ped, point.x, point.y, point.z + 0.02, false, false, false, false)
     SetEntityHeading(ped, (point.w or 0.0) + 180.0)
     FreezeEntityPosition(ped, true)
-    lib.requestAnimDict(TABLE.dict, 3000)
-    TaskPlayAnim(ped, TABLE.dict, TABLE.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false)
+    if Util.LoadAnim(TABLE.dict, 3000) then
+        TaskPlayAnim(ped, TABLE.dict, TABLE.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false)
+    end
     UI.Send('bed', 'open', { seconds = 0, treat = false, label = Text('surgery_under'), sedated = true })
     Wait(300)
     DoScreenFadeIn(400)
 end)
 
-RegisterNetEvent('XS-Medical:client:offTable', function()
+local function offTable()
     if not Surgery.onTable then return end
     Surgery.onTable = false
     UI.Send('bed', 'close', {})
     local ped = PlayerPedId()
     FreezeEntityPosition(ped, false)
     if not Down.active then ClearPedTasks(ped) end
+end
+
+RegisterNetEvent('XS-Medical:client:offTable', offTable)
+
+Framework.OnUnloaded(function()
+    offTable()
+    if not Surgery.active then return end
+    Surgery.active, Surgery.key = false, nil
+    UI.Send('surgery', 'close', {})
+    UI.Focus('surgery', false)
+    ClearPedTasks(PlayerPedId())
 end)

@@ -4,8 +4,7 @@ local LIE = { dict = 'anim@gangops@morgue@table@', clip = 'body_search' }
 local GETUP = { dict = 'switch@franklin@bed', clip = 'sleep_getup_rubeyes' }
 
 local function loadDict(dict)
-    lib.requestAnimDict(dict, 3000)
-    return HasAnimDictLoaded(dict)
+    return Util.LoadAnim(dict, 3000)
 end
 
 local function lieDown()

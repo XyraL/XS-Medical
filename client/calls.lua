@@ -135,3 +135,8 @@ Framework.OnJob(function(job)
         Calls.list = {}
     end
 end)
+
+Framework.OnUnloaded(function()
+    for id in pairs(Calls.blips) do removeBlip(id) end
+    Calls.list, Calls.alerted = {}, nil
+end)

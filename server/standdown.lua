@@ -22,6 +22,6 @@ exports('SetPaused', function(src, paused)
     Standdown.Set(src, paused)
 end)
 
-AddEventHandler('playerDropped', function()
-    Standdown.paused[source] = nil
+Framework.OnUnloaded(function(src)
+    if Standdown.paused[src] then Standdown.Set(src, false) end
 end)

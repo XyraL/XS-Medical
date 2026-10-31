@@ -83,7 +83,8 @@ function Treat.Run(target, key, injury)
     local anim = animFor(key, target == me)
     local done = lib.progressBar({
         duration = math.floor((info.seconds or 5) * 1000), label = info.label, useWhileDead = false, canCancel = true,
-        disable = { move = true, car = true, combat = true }, anim = { dict = anim.dict, clip = anim.clip, flag = anim.flag },
+        disable = { move = true, car = true, combat = true },
+        anim = Util.LoadAnim(anim.dict, 3000) and { dict = anim.dict, clip = anim.clip, flag = anim.flag } or nil,
     })
     ClearPedTasks(PlayerPedId())
     local finished, note = lib.callback.await('XS-Medical:server:treatEnd', false, done == true)
@@ -140,7 +141,7 @@ function Treat.UseItem(item)
         if med.item == item then
             local done = lib.progressBar({
                 duration = 2500, label = med.label, canCancel = true, disable = { combat = true },
-                anim = { dict = ANIMS.pill.dict, clip = ANIMS.pill.clip, flag = ANIMS.pill.flag },
+                anim = Util.LoadAnim(ANIMS.pill.dict, 3000) and { dict = ANIMS.pill.dict, clip = ANIMS.pill.clip, flag = ANIMS.pill.flag } or nil,
             })
             if done then
                 local ok, message = lib.callback.await('XS-Medical:server:takeMedicine', false, item)
@@ -153,6 +154,10 @@ end
 
 RegisterNetEvent('XS-Medical:client:useItem', function(item)
     Treat.UseItem(item)
+end)
+
+Framework.OnUnloaded(function()
+    if Treat.busy and lib.progressActive() then lib.cancelProgress() end
 end)
 
 exports('useItem', function(data)

@@ -17,6 +17,7 @@ function Pharmacy.Close()
 end
 
 UI.OnClose('pharmacy', Pharmacy.Close)
+Framework.OnUnloaded(Pharmacy.Close)
 
 local function refresh()
     local ok, data = lib.callback.await('XS-Medical:server:pharmacy', false, Pharmacy.place.id, Pharmacy.point.id)

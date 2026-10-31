@@ -296,8 +296,7 @@ lib.callback.register('XS-Medical:server:storeVehicle', function(src, netId)
     return true
 end)
 
-AddEventHandler('playerDropped', function()
-    local src = source
+Framework.OnUnloaded(function(src)
     Hospitals.FreeBedOf(src)
     for netId, entry in pairs(Hospitals.vehicles) do
         if entry.owner == src then

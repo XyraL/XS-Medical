@@ -194,8 +194,7 @@ RegisterNetEvent('XS-Medical:server:leaveEquipment', function()
     if info and info.kind == 'wheelchair' then Equipment.carrying[src] = nil end
 end)
 
-AddEventHandler('playerDropped', function()
-    local src = source
+Framework.OnUnloaded(function(src)
     clearOwned(src)
     for _, entry in pairs(Equipment.owned) do
         if entry.holder == src then entry.holder = nil end

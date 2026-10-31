@@ -16,6 +16,7 @@ function Menu.Close()
 end
 
 UI.OnClose('menu', Menu.Close)
+Framework.OnUnloaded(Menu.Close)
 
 UI.Handle('menu:pick', function(payload)
     if not Menu.handler or type(payload) ~= 'table' then return false end

@@ -147,8 +147,7 @@ CreateThread(function()
     end
 end)
 
-AddEventHandler('playerDropped', function()
-    local src = source
+Framework.OnUnloaded(function(src)
     for id, call in pairs(Calls.list) do
         if call.units[src] then
             call.units[src] = nil

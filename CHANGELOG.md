@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1] — 2026-10-30
+
+- Switching character resets you to healthy, frees your bed, closes the tablet and menus, and ends carrying, treatments, bills and calls
+- A model or animation that will not load no longer freezes treatment, equipment or every progress bar on the server
+
+Replace everything except your config.lua. No SQL to run.
+
 ## [1.0.0] — 2026-10-26
 
 The first beta. Everything is in, and it needs testing on real servers. If something breaks or feels wrong, tell me on Discord.

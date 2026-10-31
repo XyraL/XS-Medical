@@ -8,13 +8,13 @@ local function holdProp()
     if not (Config.Tablet or {}).prop then return end
     local ped = PlayerPedId()
     local model = `prop_cs_tablet`
-    lib.requestModel(model, 3000)
-    if not HasModelLoaded(model) then return end
+    if not Util.LoadModel(model, 3000) then return end
     Tablet.prop = CreateObject(model, 0.0, 0.0, 0.0, true, true, false)
     AttachEntityToEntity(Tablet.prop, ped, GetPedBoneIndex(ped, 28422), 0.0, -0.03, 0.0, 20.0, -90.0, 0.0, true, true, false, true, 1, true)
     SetModelAsNoLongerNeeded(model)
-    lib.requestAnimDict('amb@code_human_in_bus_passenger_idles@female@tablet@base', 3000)
-    TaskPlayAnim(ped, 'amb@code_human_in_bus_passenger_idles@female@tablet@base', 'base', 3.0, 3.0, -1, 49, 0.0, false, false, false)
+    if Util.LoadAnim('amb@code_human_in_bus_passenger_idles@female@tablet@base', 3000) then
+        TaskPlayAnim(ped, 'amb@code_human_in_bus_passenger_idles@female@tablet@base', 'base', 3.0, 3.0, -1, 49, 0.0, false, false, false)
+    end
 end
 
 local function dropProp()
@@ -73,6 +73,7 @@ function Tablet.Bill(target)
 end
 
 UI.OnClose('tablet', Tablet.Close)
+Framework.OnUnloaded(Tablet.Close)
 
 local RELAY = {
     patient = 'patient', nearby = 'nearby', recordsSearch = 'recordsSearch', recordsOpen = 'recordsOpen',

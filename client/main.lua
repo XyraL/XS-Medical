@@ -2,6 +2,16 @@ Me = { state = { status = 'alive', blood = 100, injuries = {}, vitals = {} }, lo
 
 local lastArmour = -1
 
+function Util.LoadModel(hash, timeout)
+    if not IsModelInCdimage(hash) then return false end
+    return pcall(lib.requestModel, hash, timeout) and HasModelLoaded(hash)
+end
+
+function Util.LoadAnim(dict, timeout)
+    if not DoesAnimDictExist(dict) then return false end
+    return pcall(lib.requestAnimDict, dict, timeout) and HasAnimDictLoaded(dict)
+end
+
 local function applyBase(info)
     local ped = PlayerPedId()
     SetEntityMaxHealth(ped, 200)
@@ -92,8 +102,10 @@ end)
 
 Framework.OnUnloaded(function()
     Me.loaded = false
-    if Down and Down.active then Down.Stop(true) end
+    Me.paused = false
+    if Down and Down.active then Down.Stop() end
     if Bed and Bed.active then Bed.Stop(true) end
+    Me.state = { status = 'alive', blood = 100, injuries = {}, vitals = {} }
     UI.Send('self', 'reset', {})
 end)
 

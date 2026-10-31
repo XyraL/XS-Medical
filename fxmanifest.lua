@@ -5,7 +5,7 @@ lua54 'yes'
 name 'XS-Medical'
 author 'XyraL'
 description 'An all-in-one EMS and medical script for Qbox and QBCore. Replaces qbx_medical, qbx_ambulancejob and qb-ambulancejob.'
-version '1.0.0'
+version '1.0.1'
 
 provide 'qbx_medical'
 provide 'qbx_ambulancejob'

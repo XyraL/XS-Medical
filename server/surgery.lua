@@ -90,8 +90,7 @@ lib.callback.register('XS-Medical:server:surgeryEnd', function(src, k, results)
     return true, summary
 end)
 
-AddEventHandler('playerDropped', function()
-    local src = source
+Framework.OnUnloaded(function(src)
     for k, op in pairs(Surgery.active) do
         if op.medic == src or op.patient == src then
             if op.patient ~= src then TriggerClientEvent('XS-Medical:client:offTable', op.patient) end

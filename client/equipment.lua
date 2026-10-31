@@ -171,7 +171,10 @@ function Equip.Hold(netId, kind)
     Equip.held, Equip.heldKind = netId, kind
     Equip.known[ent] = kind
     local anim = pushAnim(kind)
-    lib.requestAnimDict(anim.dict, 3000)
+    if not Util.LoadAnim(anim.dict, 3000) then
+        Equip.Drop()
+        return Framework.Notify(Text('err_failed'), 'error')
+    end
     CreateThread(function()
         lib.showTextUI(Text('equipment_hint'), { position = 'right-center' })
         while Equip.held == netId do
@@ -268,10 +271,10 @@ function Equip.Unload(vehicle)
 end
 
 function Equip.Carry(target)
+    if not Util.LoadAnim(CARRIER.dict, 3000) then return Framework.Notify(Text('err_failed'), 'error') end
     local ok, err = lib.callback.await('XS-Medical:server:carry', false, target, true)
     if not ok then return Framework.Notify(err or Text('err_failed'), 'error') end
     Equip.carrying = target
-    lib.requestAnimDict(CARRIER.dict, 3000)
     CreateThread(function()
         lib.showTextUI(Text('carry_hint'), { position = 'right-center' })
         while Equip.carrying == target do
@@ -315,14 +318,14 @@ RegisterNetEvent('XS-Medical:client:placeOn', function(netId, kind)
     Equip.onIt, Equip.onNet = true, netId
     if Down.active then Down.carried = true end
     local anim = kind == 'wheelchair' and SIT or LIE
-    lib.requestAnimDict(anim.dict, 3000)
+    local animated = Util.LoadAnim(anim.dict, 3000)
     AttachEntityToEntity(ped, ent, 0, seat.offset.x, seat.offset.y, seat.offset.z, seat.rotation.x, seat.rotation.y, seat.rotation.z, false, false, false, false, 2, true)
-    TaskPlayAnim(ped, anim.dict, anim.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false)
+    if animated then TaskPlayAnim(ped, anim.dict, anim.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false) end
     if kind == 'wheelchair' and not Down.active then lib.showTextUI(Text('wheelchair_hint'), { position = 'right-center' }) end
     CreateThread(function()
         while Equip.onIt and Equip.onNet == netId do
             local p = PlayerPedId()
-            if not IsEntityPlayingAnim(p, anim.dict, anim.clip, 3) then TaskPlayAnim(p, anim.dict, anim.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false) end
+            if animated and not IsEntityPlayingAnim(p, anim.dict, anim.clip, 3) then TaskPlayAnim(p, anim.dict, anim.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false) end
             if kind == 'wheelchair' and not Down.active and IsControlJustReleased(0, 73) then
                 TriggerServerEvent('XS-Medical:server:leaveEquipment')
                 Equip.Release()
@@ -345,13 +348,13 @@ RegisterNetEvent('XS-Medical:client:carried', function(carrier)
     local ped = PlayerPedId()
     Equip.carriedBy = carrier
     if Down.active then Down.carried = true end
-    lib.requestAnimDict(CARRIED.dict, 3000)
+    local animated = Util.LoadAnim(CARRIED.dict, 3000)
     AttachEntityToEntity(ped, carrierPed, 0, 0.27, 0.15, 0.63, 0.5, 0.5, 180.0, false, false, false, false, 2, false)
-    TaskPlayAnim(ped, CARRIED.dict, CARRIED.clip, 8.0, -8.0, -1, 33, 0.0, false, false, false)
+    if animated then TaskPlayAnim(ped, CARRIED.dict, CARRIED.clip, 8.0, -8.0, -1, 33, 0.0, false, false, false) end
     CreateThread(function()
         while Equip.carriedBy == carrier do
             local p = PlayerPedId()
-            if not IsEntityPlayingAnim(p, CARRIED.dict, CARRIED.clip, 3) then TaskPlayAnim(p, CARRIED.dict, CARRIED.clip, 8.0, -8.0, -1, 33, 0.0, false, false, false) end
+            if animated and not IsEntityPlayingAnim(p, CARRIED.dict, CARRIED.clip, 3) then TaskPlayAnim(p, CARRIED.dict, CARRIED.clip, 8.0, -8.0, -1, 33, 0.0, false, false, false) end
             Wait(300)
         end
     end)
@@ -459,6 +462,12 @@ function Equip.RegisterTargets()
         },
     })
 end
+
+Framework.OnUnloaded(function()
+    Equip.carrying = false
+    Equip.Drop()
+    Equip.Release()
+end)
 
 AddEventHandler('onResourceStop', function(name)
     if name ~= GetCurrentResourceName() then return end

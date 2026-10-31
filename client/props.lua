@@ -24,8 +24,7 @@ end
 
 local function spawn(key, entry, generation)
     local hash = joaat(entry.model)
-    if not IsModelInCdimage(hash) then return end
-    lib.requestModel(hash, 5000)
+    if not Util.LoadModel(hash, 5000) then return end
     if generation ~= Props.generation or not Props.wanted[key] or Props.live[key] then
         SetModelAsNoLongerNeeded(hash)
         return

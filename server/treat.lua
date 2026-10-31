@@ -265,6 +265,8 @@ lib.callback.register('XS-Medical:server:glance', function(src, target)
     return { header = Text('glance_title'), lines = lines }
 end)
 
-AddEventHandler('playerDropped', function()
-    Treat.pending[source] = nil
+Framework.OnUnloaded(function(src)
+    for medic, job in pairs(Treat.pending) do
+        if medic == src or job.target == src then Treat.pending[medic] = nil end
+    end
 end)

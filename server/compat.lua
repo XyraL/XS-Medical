@@ -240,6 +240,16 @@ RegisterNetEvent('XS-Medical:server:compatRemoveBleed', function(level)
     end
 end)
 
+Framework.OnUnloaded(function(src)
+    local bag = Player(src).state
+    if bag.isDead or bag.dead then
+        bag:set('qbx_medical:deathState', DEATH_STATE.alive, true)
+        bag:set('isDead', false, true)
+        bag:set('dead', false, true)
+    end
+    if (bag['qbx_medical:bleedLevel'] or 0) > 0 then Compat.Bleed(src, 0) end
+end)
+
 AddEventHandler('playerDropped', function()
     for _, kind in ipairs({ 'revive', 'heal', 'pain', 'bleed' }) do trusted[source .. kind] = nil end
     Compat.healedAt[source] = nil

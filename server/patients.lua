@@ -226,11 +226,11 @@ CreateThread(function()
     end
 end)
 
-AddEventHandler('playerDropped', function()
-    local v = Patients.visits[source]
+Framework.OnUnloaded(function(src)
+    local v = Patients.visits[src]
     if v then
         Patients.dirty[v.hospital or 'field'] = true
         Patients.dirty.any = true
-        Patients.visits[source] = nil
+        Patients.visits[src] = nil
     end
 end)

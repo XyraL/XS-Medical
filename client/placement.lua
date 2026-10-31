@@ -37,9 +37,7 @@ local function startPreview(model, vehicle)
     stopPreview()
     if not model or model == '' then return end
     local hash = joaat(model)
-    if not IsModelInCdimage(hash) then return end
-    lib.requestModel(hash, 6000)
-    if not HasModelLoaded(hash) then return end
+    if not Util.LoadModel(hash, 6000) then return end
     if vehicle then
         local mn = GetModelDimensions(hash)
         lift = math.max(0.0, -mn.z)

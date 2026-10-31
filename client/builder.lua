@@ -89,6 +89,7 @@ function Builder.Close()
 end
 
 UI.OnClose('builder', Builder.Close)
+Framework.OnUnloaded(Builder.Close)
 
 UI.Handle('builder:select', function(place)
     Builder.place = type(place) == 'table' and place or nil
@@ -107,7 +108,7 @@ UI.Handle('builder:place', function(payload)
         ratio = RATIOS[payload.screen or ''] or 0.5625, previewModel = payload.previewModel,
         previewVehicle = payload.previewVehicle == true, existing = existing,
     })
-    show()
+    if Builder.open then show() end
     if not result then return false, Text('builder_cancelled') end
     return true, result
 end)

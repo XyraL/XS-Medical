@@ -10,6 +10,7 @@ local function closeSelf()
 end
 
 UI.OnClose('self', closeSelf)
+Framework.OnUnloaded(closeSelf)
 
 if C.injuries and C.injuries ~= '' then
     RegisterCommand(C.injuries, function()
