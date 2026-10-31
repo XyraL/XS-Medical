@@ -1,8 +1,14 @@
 # Changelog
 
+## [1.0.2] — 2026-10-30
+
+- Fixed logging out or crashing right after going down bringing you back healthy. Your wounds and down state are saved the moment you leave
+
+Replace everything except your config.lua. No SQL to run.
+
 ## [1.0.1] — 2026-10-30
 
-- Switching character resets you to healthy, frees your bed, closes the tablet and menus, and ends carrying, treatments, bills and calls
+- Logging out closes the tablet and menus, frees your bed, and ends carrying, treatments, bills and calls
 - A model or animation that will not load no longer freezes treatment, equipment or every progress bar on the server
 
 Replace everything except your config.lua. No SQL to run.

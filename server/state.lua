@@ -64,15 +64,12 @@ function State.Load(src)
         end
         if saved.status and LIVE[saved.status] then s.restoreDown = saved.status end
     end
+    s.citizenid = Framework.GetCitizenId(src)
     State.players[src] = s
     return s
 end
 
-function State.Save(src, force)
-    local s = State.Peek(src)
-    if not s then return end
-    local now = os.time()
-    if not force and (not s.dirty or now - (s.savedAt or 0) < 5) then return end
+local function snapshot(s)
     local out = { status = s.status, blood = Util.Round(s.blood, 1), opioid = Util.Round(s.opioid, 1), injuries = {} }
     for i, injury in ipairs(s.injuries) do
         out.injuries[i] = {
@@ -81,12 +78,26 @@ function State.Save(src, force)
             infected = injury.infected or nil, openAt = injury.openAt, treated = injury.treated, at = injury.at,
         }
     end
-    Framework.SetMetaData(src, META, out)
+    return out
+end
+
+function State.Save(src, force)
+    local s = State.Peek(src)
+    if not s then return end
+    local now = os.time()
+    if not force and (not s.dirty or now - (s.savedAt or 0) < 5) then return end
+    Framework.SetMetaData(src, META, snapshot(s))
     s.dirty, s.savedAt = false, now
 end
 
 function State.Forget(src)
+    local s = State.Peek(src)
     State.Save(src, true)
+    local citizenid = s and (s.citizenid or Framework.GetCitizenId(src))
+    if citizenid then
+        MySQL.update('UPDATE players SET metadata = JSON_MERGE_PATCH(COALESCE(metadata, ?), ?) WHERE citizenid = ?',
+            { '{}', json.encode({ [META] = snapshot(s) }), citizenid })
+    end
     State.players[tonumber(src) or -1] = nil
     local bag = Player(src).state
     if bag.xsm ~= nil then bag:set('xsm', nil, true) end
